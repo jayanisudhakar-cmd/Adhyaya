@@ -2,7 +2,7 @@
 
 An AI-powered, multilingual, and adaptive personalized learning platform designed to bridge the education gap in rural areas and provide accessible education for neurodivergent learners.
 
-## 🚀 Features
+##  Features
 
 * **Hyper-Personalized AI Tutor:** Dynamic platform generating localized, real-time curriculum based on user inputs.
 * **Culturally Relevant Teacher Avatars:** Generates avatars from user-uploaded faces, dressed in traditional Indian attire (Saree/Dhoti).
