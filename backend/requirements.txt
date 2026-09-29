@@ -18,3 +18,4 @@ edge-tts>=6.1.9
 gTTS>=2.5.0
 moviepy==1.0.3
 opencv-python>=4.9.0
+numpy==1.26.4
