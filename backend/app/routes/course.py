@@ -31,7 +31,8 @@ def generate_quiz_endpoint(request: QuizRequest):
         quiz_data = gemini_service.generate_quiz(
             topic=request.topic,
             level=request.level,
-            num_questions=request.num_questions
+            num_questions=request.num_questions,
+            language=request.language or "English"
         )
         return quiz_data
     except Exception as e:

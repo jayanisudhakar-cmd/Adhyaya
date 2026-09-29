@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { generateQuiz } from "../services/api";
-import { Trophy, HelpCircle, Loader2, Play, Sparkles, Check, X, AlertCircle } from "lucide-react";
+import { Trophy, HelpCircle, Loader2, Play, Sparkles, Check, X, AlertCircle, GraduationCap } from "lucide-react";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function TestGenerator({ quizzes, setQuizzes }) {
+  const { currentCourseLang, t } = useLanguage();
   const [topic, setTopic] = useState("");
   const [level, setLevel] = useState("Medium");
   const [numQuestions, setNumQuestions] = useState(5);
@@ -26,7 +28,7 @@ export default function TestGenerator({ quizzes, setQuizzes }) {
     setUserAnswers({});
 
     try {
-      const quiz = await generateQuiz(topic, level, numQuestions);
+      const quiz = await generateQuiz(topic, level, numQuestions, currentCourseLang?.speechLang || "English");
       setQuizzes(prev => [quiz, ...prev]);
       setActiveQuiz(quiz);
     } catch (err) {
@@ -201,11 +203,17 @@ export default function TestGenerator({ quizzes, setQuizzes }) {
   // 2. Default screen - Generate New Quiz or list history
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-extrabold text-white">Interactive Assessment Generator</h1>
-        <p className="text-gray-400 text-sm mt-2">
-          Test your memory and grasp of specific topics. Generate custom mock assessments dynamically utilizing Gemini 2.5 Flash.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white">Interactive Assessment Generator</h1>
+          <p className="text-gray-400 text-sm mt-1">
+            Test your memory and grasp of specific topics. Generate custom mock assessments dynamically.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 px-3 py-1.5 rounded-xl text-purple-200 text-xs font-semibold">
+          <GraduationCap className="w-4 h-4 text-purple-400" />
+          <span>Course Language: {currentCourseLang.label}</span>
+        </div>
       </div>
 
       <form onSubmit={handleCreateQuiz} className="glass-panel p-8 rounded-2xl border border-white/5 space-y-6">

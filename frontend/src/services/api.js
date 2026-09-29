@@ -16,13 +16,13 @@ export async function generateCourse(topic, language = "English", pace = "Medium
   return response.json();
 }
 
-export async function generateQuiz(topic, level = "Medium", numQuestions = 5) {
+export async function generateQuiz(topic, level = "Medium", numQuestions = 5, language = "English") {
   const response = await fetch(`${API_BASE_URL}/quizzes/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ topic, level, num_questions: numQuestions }),
+    body: JSON.stringify({ topic, level, num_questions: numQuestions, language }),
   });
 
   if (!response.ok) {
@@ -54,10 +54,22 @@ export async function convertRealImageToFigurine(imageSource, style = "clay_figu
   return response.json();
 }
 
-export async function generateAvatarVideo(imageSource, script, voiceId = "21m00Tcm4TlvDq8ikWAM") {
+export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+
+export async function generateAvatarVideo({
+  imageSource,
+  script,
+  language = "en",
+  engine = "gtts",
+  voiceGender = "male",
+  pace = "Medium"
+}) {
   const formData = new FormData();
   formData.append("script", script);
-  formData.append("voice_id", voiceId);
+  formData.append("language", language);
+  formData.append("engine", engine);
+  formData.append("voice_gender", voiceGender);
+  formData.append("pace", pace);
 
   if (imageSource instanceof File) {
     formData.append("image_file", imageSource);
@@ -71,10 +83,45 @@ export async function generateAvatarVideo(imageSource, script, voiceId = "21m00T
   });
 
   if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.detail || "Failed to generate virtual teacher video talk.");
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to render free talking avatar video.");
   }
-  return response.json();
+
+  const data = await response.json();
+  if (data.video_url && !data.video_url.startsWith("http")) {
+    data.video_url = `${SERVER_BASE_URL}${data.video_url}`;
+  }
+  if (data.audio_url && !data.audio_url.startsWith("http")) {
+    data.audio_url = `${SERVER_BASE_URL}${data.audio_url}`;
+  }
+  return data;
+}
+
+export async function generateFreeTtsAudio(text, language = "en", engine = "gtts", voiceGender = "male", pace = "Medium") {
+  const response = await fetch(`${API_BASE_URL}/avatar/free-tts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text,
+      language,
+      engine,
+      voice_gender: voiceGender,
+      pace,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to synthesize free speech audio.");
+  }
+
+  const data = await response.json();
+  if (data.audio_url && !data.audio_url.startsWith("http")) {
+    data.audio_url = `${SERVER_BASE_URL}${data.audio_url}`;
+  }
+  return data;
 }
 
 export async function sendChatMessage(message, history = [], neuroMode = "standard", language = "English") {
@@ -149,4 +196,55 @@ export async function generateAvatarLecture(topic, language = "English", pace = 
   }
   return response.json();
 }
+
+export async function generateAiFigure(promptOrName, style = "2d_illustrated", gender = "female") {
+  const response = await fetch(`${API_BASE_URL}/avatar/generate-figure`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt_or_name: promptOrName,
+      style,
+      gender,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to generate AI figure.");
+  }
+
+  const data = await response.json();
+  if (data.avatar_url && !data.avatar_url.startsWith("http")) {
+    data.avatar_url = `${SERVER_BASE_URL}${data.avatar_url}`;
+  }
+  return data;
+}
+
+export async function generateRealisticImage(prompt, geminiApiKey = "", stylePreset = "photorealistic") {
+  const response = await fetch(`${API_BASE_URL}/avatar/generate-realistic`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      gemini_api_key: geminiApiKey || undefined,
+      style_preset: stylePreset,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to generate realistic AI image.");
+  }
+
+  const data = await response.json();
+  if (data.avatar_url && !data.avatar_url.startsWith("http")) {
+    data.avatar_url = `${SERVER_BASE_URL}${data.avatar_url}`;
+  }
+  return data;
+}
+
 

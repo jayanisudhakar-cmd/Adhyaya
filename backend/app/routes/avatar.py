@@ -5,15 +5,26 @@ import edge_tts
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from typing import Optional
+import os
+import uuid
 from app.services.elevenlabs_service import ElevenLabsService
 from app.services.did_service import DIDService
 from app.services.image_converter_service import image_converter_service
+from app.services.free_lip_sync_service import free_lip_sync_service
+from app.services.gemini_image_service import gemini_image_service
 
 router = APIRouter(prefix="/api", tags=["Avatar Generation"])
 
 # Instantiate services
 elevenlabs_service = ElevenLabsService()
 did_service = DIDService()
+
+class FreeTtsPayload(BaseModel):
+    text: str
+    language: str = "en"
+    engine: str = "gtts"
+    voice_gender: str = "male"
+    pace: str = "Medium"
 
 class SpeakPayload(BaseModel):
     text: str
@@ -121,6 +132,105 @@ async def generate_lecture_endpoint(payload: LecturePayload):
         "lecture_script": script
     }
 
+class GenerateFigurePayload(BaseModel):
+    prompt_or_name: str
+    style: str = "2d_illustrated"  # "2d_illustrated", "2d_vector", "2d_anime", "2d_tech", "3d_clay"
+    gender: str = "female"         # "female" or "male"
+
+@router.post("/avatar/generate-figure")
+async def generate_figure_endpoint(payload: GenerateFigurePayload):
+    """
+    Generates a custom 2D or 3D AI Teacher Figure on the fly:
+    - 2D Illustrated Character (Lorelei / Micah)
+    - 2D Vector Avatar (Avataaars)
+    - 2D Anime Sensei (Adventurer)
+    - 2D Tech Mentor (Bottts)
+    - 3D Master Figurine (Clay render)
+    """
+    try:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        avatars_dir = os.path.join(base_dir, "static", "avatars")
+        os.makedirs(avatars_dir, exist_ok=True)
+        
+        name_clean = payload.prompt_or_name.strip() or "Teacher"
+        seed = "".join(c for c in name_clean if c.isalnum()) or "Adhyaya"
+        
+        if payload.style == "3d_clay":
+            gender = payload.gender.lower()
+            rel_url = "/avatars/figurine_female.jpg" if gender == "female" else "/avatars/figurine_male.jpg"
+            return {
+                "success": True,
+                "avatar_url": rel_url,
+                "name": name_clean,
+                "style": "3D Clay Figurine",
+                "message": f"Generated 3D Figurine for {name_clean}!"
+            }
+
+        # 2D Generative Styles
+        style_map = {
+            "2d_illustrated": ("lorelei", "ffd5dc,ffdfba,d1d4f9"),
+            "2d_vector": ("avataaars", "b6e3f4,c0aede,ffd5dc"),
+            "2d_anime": ("adventurer", "b6e3f4,ffd5dc,d1d4f9"),
+            "2d_tech": ("bottts", "c0aede,b6e3f4,ffd5dc")
+        }
+        collection, bg_colors = style_map.get(payload.style, ("lorelei", "ffd5dc,ffdfba"))
+        dicebear_url = f"https://api.dicebear.com/7.x/{collection}/png?seed={seed}&backgroundColor={bg_colors}"
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(dicebear_url)
+            if resp.status_code == 200:
+                img_filename = f"gen_avatar_{uuid.uuid4().hex[:8]}.png"
+                local_path = os.path.join(avatars_dir, img_filename)
+                with open(local_path, "wb") as f:
+                    f.write(resp.content)
+                rel_url = f"/static/avatars/{img_filename}"
+                return {
+                    "success": True,
+                    "avatar_url": rel_url,
+                    "name": name_clean,
+                    "style": payload.style,
+                    "message": f"Generated 2D AI Figure for {name_clean}!"
+                }
+            else:
+                raise ValueError("Could not download generated avatar from engine.")
+    except Exception as e:
+        rel_url = "/avatars/avatar_2d_priya.png" if payload.gender == "female" else "/avatars/avatar_2d_kabir.png"
+        return {
+            "success": True,
+            "avatar_url": rel_url,
+            "name": payload.prompt_or_name or "AI Teacher",
+            "style": payload.style,
+            "message": f"Loaded AI Figure ({str(e)[:50]})"
+        }
+
+class GenerateRealisticPayload(BaseModel):
+    prompt: str
+    gemini_api_key: Optional[str] = None
+    style_preset: str = "photorealistic"  # "photorealistic", "academic", "modern_tutor", "artistic_3d"
+
+@router.post("/avatar/generate-realistic")
+async def generate_realistic_endpoint(payload: GenerateRealisticPayload):
+    """
+    Generates a realistic, enhanced visual AI teacher image using Google Gemini Imagen 3
+    or high-fidelity neural realism engine.
+    """
+    try:
+        file_path, rel_url, engine = await gemini_image_service.generate_realistic_image(
+            prompt=payload.prompt,
+            gemini_api_key=payload.gemini_api_key,
+            style_preset=payload.style_preset
+        )
+        return {
+            "success": True,
+            "avatar_url": rel_url,
+            "engine": engine,
+            "prompt": payload.prompt,
+            "style_preset": payload.style_preset,
+            "message": f"Realistic avatar generated via {engine}!"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Realistic image generation failed: {str(e)}")
+
 @router.post("/avatar/convert-to-figurine")
 async def convert_to_figurine_endpoint(
     image_file: Optional[UploadFile] = File(None),
@@ -155,56 +265,133 @@ async def convert_to_figurine_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Image conversion failed: {str(e)}")
 
+@router.post("/avatar/free-tts")
+async def free_tts_endpoint(payload: FreeTtsPayload):
+    """
+    Step 2: Generate Speech Audio in English & Kannada (Free TTS)
+    Lightweight, completely free, supports English (en) and Kannada (kn) via gTTS or Edge-TTS.
+    """
+    try:
+        audio_path, audio_url = await free_lip_sync_service.generate_free_audio(
+            text=payload.text,
+            language=payload.language,
+            engine=payload.engine,
+            voice_gender=payload.voice_gender,
+            pace=payload.pace
+        )
+        return {
+            "success": True,
+            "audio_url": audio_url,
+            "language": payload.language,
+            "engine": payload.engine,
+            "message": f"Free speech audio generated successfully in {payload.language}!"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Free TTS generation failed: {str(e)}")
+
 @router.post("/avatar/generate")
 async def generate_avatar_endpoint(
     image_url: Optional[str] = Form(None),
     image_file: Optional[UploadFile] = File(None),
     script: str = Form(...),
-    voice_id: str = Form("21m00Tcm4TlvDq8ikWAM")
+    language: str = Form("en"),
+    engine: str = Form("gtts"),
+    voice_gender: str = Form("male"),
+    pace: str = Form("Medium"),
+    voice_id: str = Form("default")
 ):
     """
-    Takes an avatar image (either a URL or uploaded image file) and a lesson script,
-    generates speech audio via ElevenLabs, sends both to D-ID to animate the avatar,
-    and returns the final MP4 video URL.
+    100% Free Open-Source Talking Avatar Video Pipeline (Zero Cost, No Paid API Keys):
+    Step 1: Handle User Image Upload (Form file or URL).
+    Step 2: Generate Speech Audio in English & Kannada (Free TTS via gTTS / Edge-TTS).
+    Step 3: Implement Lip-Syncing (Open Source & Free OpenCV + FFmpeg / Wav2Lip).
+    Step 4: Return synchronized .mp4 video URL to display in a <video> element.
     """
     try:
-        # Step 1: Resolve the source image identifier (URL or D-ID image ID)
-        if image_file and image_file.filename:
-            image_bytes = await image_file.read()
-            source_identifier = await did_service.upload_image(
-                image_bytes=image_bytes,
-                filename=image_file.filename
-            )
-        elif image_url:
-            source_identifier = image_url
-        else:
-            raise ValueError("Either 'image_url' or an 'image_file' must be uploaded.")
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        uploads_dir = os.path.join(base_dir, "static", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        img_id = uuid.uuid4().hex[:10]
+        local_image_path = os.path.join(uploads_dir, f"img_{img_id}.jpg")
 
-        # Step 2: Generate speech audio from script using ElevenLabs
-        audio_bytes = await elevenlabs_service.text_to_speech(
+        # Step 1: Handle Image Upload or URL
+        if image_file and image_file.filename:
+            content = await image_file.read()
+            with open(local_image_path, "wb") as f:
+                f.write(content)
+        elif image_url:
+            if image_url.startswith("data:image/"):
+                header, encoded = image_url.split(",", 1)
+                img_data = base64.b64decode(encoded)
+                with open(local_image_path, "wb") as f:
+                    f.write(img_data)
+            elif "/static/" in image_url:
+                static_sub = image_url.split("/static/", 1)[1]
+                disk_path = os.path.abspath(os.path.join(base_dir, "static", static_sub.replace("/", os.sep)))
+                if os.path.exists(disk_path):
+                    local_image_path = disk_path
+                else:
+                    raise ValueError(f"Static image file not found: {static_sub}")
+            elif image_url.startswith("/avatars/"):
+                frontend_avatar = os.path.abspath(os.path.join(base_dir, "..", "frontend", "public", image_url.lstrip("/")))
+                if os.path.exists(frontend_avatar):
+                    local_image_path = frontend_avatar
+                else:
+                    raise ValueError(f"Avatar preset file not found: {image_url}")
+            elif image_url.startswith("http://") or image_url.startswith("https://"):
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.get(image_url)
+                    if resp.status_code == 200:
+                        with open(local_image_path, "wb") as f:
+                            f.write(resp.content)
+                    else:
+                        raise ValueError("Could not download image from the provided web URL.")
+            elif os.path.exists(image_url):
+                local_image_path = image_url
+            else:
+                default_avatar = os.path.abspath(os.path.join(base_dir, "..", "frontend", "public", "avatars", "figurine_male.jpg"))
+                if os.path.exists(default_avatar):
+                    local_image_path = default_avatar
+                else:
+                    raise ValueError("No valid image file or URL provided.")
+        else:
+            default_avatar = os.path.abspath(os.path.join(base_dir, "..", "frontend", "public", "avatars", "figurine_male.jpg"))
+            if os.path.exists(default_avatar):
+                local_image_path = default_avatar
+            else:
+                raise ValueError("Either 'image_url' or 'image_file' must be provided.")
+
+        # Step 2: Generate Free Speech Audio in English & Kannada
+        audio_path, audio_url = await free_lip_sync_service.generate_free_audio(
             text=script,
-            voice_id=voice_id
+            language=language,
+            engine=engine,
+            voice_gender=voice_gender,
+            pace=pace
         )
-        
-        # Step 3: Animate avatar using D-ID (Uploads audio, triggers, and polls)
-        video_url = await did_service.generate_avatar_video(
-            image_url=source_identifier,
-            audio_bytes=audio_bytes
+
+        # Step 3: Implement Lip-Syncing (Open Source & Free)
+        video_path, video_url, duration = free_lip_sync_service.generate_talking_avatar_video(
+            image_path=local_image_path,
+            audio_path=audio_path
         )
-        
+
+        # Step 4: Connecting Frontend to Backend (return .mp4 video)
         return {
             "success": True,
-            "video_url": video_url
+            "video_url": video_url,
+            "audio_url": audio_url,
+            "duration": round(duration, 2),
+            "language": language,
+            "engine": engine,
+            "message": f"Talking avatar video rendered successfully ({duration:.1f}s, 100% Free & Open-Source)!"
         }
-        
-    except ValueError as val_err:
-        raise HTTPException(status_code=400, detail=str(val_err))
+
     except Exception as e:
-        # Graceful fallback: return interactive figurine payload
         return {
             "success": True,
             "fallback": True,
             "video_url": None,
             "script": script,
-            "message": f"Interactive AI figurine mode active ({str(e)[:60]}...)"
+            "message": f"Interactive AI figurine mode active ({str(e)[:80]})"
         }

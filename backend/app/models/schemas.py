@@ -24,6 +24,7 @@ class QuizRequest(BaseModel):
     topic: str
     level: str = Field(default="Medium", description="Difficulty: Easy, Medium, Hard")
     num_questions: int = Field(default=5, description="Number of questions to generate")
+    language: Optional[str] = Field(default="English", description="Language of quiz questions")
 
 class Question(BaseModel):
     question_text: str

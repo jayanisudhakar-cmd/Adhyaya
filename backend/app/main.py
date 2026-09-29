@@ -17,6 +17,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Mount static files directory for generated videos and audio
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+os.makedirs(os.path.join(static_dir, "videos"), exist_ok=True)
+os.makedirs(os.path.join(static_dir, "audio"), exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 # Include Routers
 app.include_router(course.router)
 app.include_router(avatar.router)

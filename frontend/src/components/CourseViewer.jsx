@@ -1,12 +1,13 @@
-import React, { useState } from "react";
-import { generateCourse, generateAvatarVideo } from "../services/api";
+import React, { useState, useRef, useEffect } from "react";
+import { generateCourse, generateAvatarVideo, speakAvatarText, generateFreeTtsAudio } from "../services/api";
 import { useNeuro } from "../context/NeuroContext";
+import { useLanguage } from "../context/LanguageContext";
 import { 
   BookOpen, 
   Sparkles, 
   Loader2, 
   Play, 
-  Pause,
+  Pause, 
   Video, 
   ChevronRight, 
   CheckCircle, 
@@ -16,14 +17,78 @@ import {
   VolumeX,
   Eye,
   Zap,
-  Mic
+  Mic,
+  GraduationCap
 } from "lucide-react";
 
-export default function CourseViewer({ courses, setCourses, activeCourse, setActiveCourse, avatarConfig, globalAvatarVideo }) {
+/**
+ * Strips markdown syntax into smooth, natural spoken lecture narration.
+ * Ensures the AI teacher reads real course lesson content fluently without reading symbols.
+ */
+export const cleanMarkdownForSpeech = (markdown) => {
+  if (!markdown) return "";
+  return markdown
+    .replace(/#{1,6}\s+/g, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_{1,2}(.*?)_{1,2}/g, "$1")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/^\s*>\s+/gm, "")
+    .replace(/^---+$/gm, "")
+    .replace(/\n+/g, ". ")
+    .replace(/\s+/g, " ")
+    .replace(/\.+/g, ".")
+    .trim();
+};
+
+export default function CourseViewer({
+  courses,
+  setCourses,
+  activeCourse,
+  setActiveCourse,
+  avatarConfig,
+  setAvatarConfig,
+  globalAvatarVideo,
+  setGlobalAvatarVideo
+}) {
   const { neuroMode } = useNeuro();
+  const { courseLanguage, setCourseLanguage, currentCourseLang, COURSE_LANGUAGES, t } = useLanguage();
   const [topic, setTopic] = useState("");
-  const [language, setLanguage] = useState("English");
+  const [language, setLanguage] = useState(currentCourseLang?.speechLang || "English");
   const [pace, setPace] = useState("Medium");
+
+  // Narration Mode: 'content' (Default: reads full course lesson content) or 'script' (short intro)
+  const [narrationMode, setNarrationMode] = useState("content");
+
+  // Keep local language in sync with global courseLanguage
+  React.useEffect(() => {
+    if (currentCourseLang?.speechLang) {
+      setLanguage(currentCourseLang.speechLang);
+    }
+  }, [currentCourseLang]);
+
+  // Voice Gender: Male / Female selector (default to male or avatarConfig)
+  const [voiceGender, setVoiceGender] = useState(() => avatarConfig?.voiceGender || "male");
+  const [speakingStatus, setSpeakingStatus] = useState("");
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (avatarConfig?.voiceGender && avatarConfig.voiceGender !== voiceGender) {
+      setVoiceGender(avatarConfig.voiceGender);
+    }
+  }, [avatarConfig?.voiceGender]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      stopAudio();
+    };
+  }, []);
+
   const [generating, setGenerating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   
@@ -34,29 +99,111 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
   const [error, setError] = useState("");
   const [showGenerator, setShowGenerator] = useState(courses.length === 0);
 
-  const toggleLessonSpeech = (textToSpeak) => {
-    if (!window.speechSynthesis) return;
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    setSpeakingStatus("");
+  };
+
+  const toggleLessonSpeech = async (textToSpeak) => {
+    if (!textToSpeak) return;
 
     if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
+      stopAudio();
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.02;
+    stopAudio();
+    setIsSpeaking(true);
+    const langToUse = currentCourseLang?.speechLang || language || "English";
+    setSpeakingStatus(`Synthesizing ${voiceGender === "male" ? "👨‍🏫 Male" : "👩‍🏫 Female"} neural voice in ${langToUse}...`);
 
-    const voices = window.speechSynthesis.getVoices();
-    const match = voices.find(v => v.lang.includes("en-IN") || v.name.includes("India"));
-    if (match) utterance.voice = match;
+    try {
+      // 1. Primary: Edge-TTS Neural Voice (/api/avatar/speak)
+      const res = await speakAvatarText(textToSpeak, voiceGender, langToUse, pace);
+      if (res && res.audio_url) {
+        const audio = new Audio(res.audio_url);
+        audioRef.current = audio;
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+        audio.onplay = () => {
+          setIsSpeaking(true);
+          const voiceLabel = res.voice_used || (voiceGender === "male" ? "Male Neural" : "Female Neural");
+          setSpeakingStatus(`🔊 Speaking (${voiceLabel})`);
+        };
+        audio.onended = () => {
+          setIsSpeaking(false);
+          setSpeakingStatus("");
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          setSpeakingStatus("");
+        };
 
-    window.speechSynthesis.speak(utterance);
+        await audio.play();
+        return;
+      }
+    } catch (err) {
+      console.warn("Edge-TTS speech fallback:", err);
+    }
+
+    // 2. Secondary fallback: Free TTS (/api/avatar/free-tts)
+    try {
+      const langCode = currentCourseLang?.id || "kn";
+      const freeRes = await generateFreeTtsAudio(textToSpeak, langCode, "edge_tts", voiceGender, pace);
+      if (freeRes && freeRes.audio_url) {
+        const audio = new Audio(freeRes.audio_url);
+        audioRef.current = audio;
+        audio.onplay = () => setIsSpeaking(true);
+        audio.onended = () => {
+          setIsSpeaking(false);
+          setSpeakingStatus("");
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          setSpeakingStatus("");
+        };
+        await audio.play();
+        return;
+      }
+    } catch (fallbackErr) {
+      console.warn("Free TTS fallback notice:", fallbackErr);
+    }
+
+    // 3. Tertiary fallback: Browser SpeechSynthesis
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.rate = pace === "Slow" ? 0.8 : (pace === "Fast" ? 1.2 : 1.0);
+
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find(v => (
+        voiceGender === "male"
+          ? (v.name.includes("David") || v.name.includes("Male") || v.name.includes("Prabhat"))
+          : (v.name.includes("Zira") || v.name.includes("Female") || v.name.includes("Neerja"))
+      ));
+      if (match) utterance.voice = match;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setSpeakingStatus("");
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        setSpeakingStatus("");
+      };
+      window.speechSynthesis.speak(utterance);
+    } else {
+      setIsSpeaking(false);
+      setSpeakingStatus("");
+    }
   };
 
   const handleGenerateCourse = async (e) => {
@@ -81,38 +228,49 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to generate course syllabus. Check that your API is running and Gemini key is configured.");
+      setError(err.message || "Failed to generate course syllabus. Check that your backend is running.");
     } finally {
       setGenerating(false);
     }
   };
 
   const handleGenerateLessonVideo = async (lesson) => {
-    if (!avatarConfig.imageUrl) {
-      setError("Please select an avatar and configure your teacher first in the 'AI Teacher Avatar' tab.");
-      return;
-    }
+    const teacherImage = avatarConfig?.imageUrl || "/avatars/figurine_male.jpg";
 
     setError("");
     setGeneratingLessonVideo(true);
     try {
-      const imageSource = avatarConfig.imageFile || avatarConfig.imageUrl;
-      const response = await generateAvatarVideo(
+      const imageSource = avatarConfig?.imageFile || teacherImage;
+      const langCode = currentCourseLang?.id || "kn";
+
+      // Always read the full course content when in content mode (default)
+      const textToSynthesize = narrationMode === "content"
+        ? cleanMarkdownForSpeech(lesson.content)
+        : (lesson.script || cleanMarkdownForSpeech(lesson.content));
+
+      const response = await generateAvatarVideo({
         imageSource,
-        lesson.script,
-        avatarConfig.voiceId
-      );
-      if (response.success && response.video_url) {
+        script: textToSynthesize,
+        language: langCode,
+        engine: "edge_tts",
+        voiceGender,
+        pace
+      });
+
+      if (response && response.video_url) {
         setLessonVideos(prev => ({
           ...prev,
           [lesson.title]: response.video_url
         }));
+        if (setGlobalAvatarVideo) {
+          setGlobalAvatarVideo(response.video_url);
+        }
       } else {
-        throw new Error("Invalid video generation result.");
+        throw new Error(response?.message || "Invalid video generation result.");
       }
     } catch (err) {
       console.error(err);
-      setError("Failed to animate teacher avatar for this lesson. Check D-ID and ElevenLabs credentials.");
+      setError("Failed to animate teacher avatar for this lesson: " + (err.message || "Please check connection."));
     } finally {
       setGeneratingLessonVideo(false);
     }
@@ -177,17 +335,28 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Instruction Language</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    {t("courseLangLabel", "Instruction / Course Language")}
+                  </label>
+                  <span className="text-[10px] font-bold text-purple-300">
+                    Mode: Course Content
+                  </span>
+                </div>
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full bg-slate-900/60 border border-slate-700/60 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand-500 transition-all"
+                  onChange={(e) => {
+                    setLanguage(e.target.value);
+                    const matched = COURSE_LANGUAGES.find(l => l.speechLang === e.target.value);
+                    if (matched) setCourseLanguage(matched.id);
+                  }}
+                  className="w-full bg-slate-900/60 border border-slate-700/60 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand-500 transition-all font-medium"
                 >
-                  <option value="English">English</option>
-                  <option value="Kannada">Kannada</option>
-                  <option value="Hindi">Hindi</option>
-                  <option value="Spanish">Spanish</option>
-                  <option value="French">French</option>
+                  {COURSE_LANGUAGES.map((cl) => (
+                    <option key={cl.id} value={cl.speechLang} className="bg-slate-900 text-white">
+                      {cl.flag} {cl.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -294,8 +463,9 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
     );
   }
 
-  // Active course workspace view
-  const cachedVideo = selectedLesson ? lessonVideos[selectedLesson.title] : null;
+  // Active course workspace view - checks if talking video has been generated specifically for THIS lesson
+  const activeVideo = (selectedLesson && lessonVideos[selectedLesson.title]);
+  const teacherImage = avatarConfig?.imageUrl || "/avatars/figurine_male.jpg";
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col h-[calc(100vh-8rem)]">
@@ -305,6 +475,7 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
           onClick={() => {
             setActiveCourse(null);
             setSelectedLesson(null);
+            stopAudio();
           }}
           className="p-2 bg-slate-900/80 border border-white/5 hover:border-brand-500/20 rounded-xl hover:text-brand-400 transition-all"
           title="Back to Courses"
@@ -313,7 +484,12 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
         </button>
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight truncate">{activeCourse.title}</h1>
-          <span className="text-[10px] text-brand-400 font-semibold tracking-wide uppercase">Pace: {activeCourse.pace || pace}</span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[10px] text-brand-400 font-semibold tracking-wide uppercase">Pace: {activeCourse.pace || pace}</span>
+            <span className="text-[10px] text-purple-300 font-medium bg-purple-500/15 border border-purple-500/25 px-2 py-0.5 rounded-full">
+              🎓 {currentCourseLang?.label || "Course Content"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -340,7 +516,10 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                       return (
                         <button
                           key={lesIdx}
-                          onClick={() => setSelectedLesson(les)}
+                          onClick={() => {
+                            stopAudio();
+                            setSelectedLesson(les);
+                          }}
                           className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs transition-all ${
                             isSelected 
                               ? "bg-brand-500/10 text-white font-semibold border border-brand-500/20" 
@@ -367,7 +546,7 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
           </div>
         </div>
 
-        {/* Right workspace workspace split: Video + Text */}
+        {/* Right workspace split: Video + Text */}
         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
           
           {/* Main Lesson Content (Text) - Col Span 2 */}
@@ -386,7 +565,7 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                   ))}
                 </div>
 
-                <div className="pt-6 border-t border-white/5 flex justify-between items-center gap-4">
+                <div className="pt-6 border-t border-white/5 flex flex-wrap justify-between items-center gap-3">
                   <button
                     onClick={() => toggleLessonCompleted(selectedLesson.title)}
                     className={`flex items-center gap-2 text-xs font-semibold py-2 px-4 rounded-xl border transition-all ${
@@ -400,14 +579,14 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                   </button>
 
                   <button
-                    onClick={() => toggleLessonSpeech(selectedLesson.content)}
-                    className="flex items-center gap-2 text-xs font-semibold py-2 px-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 transition-all"
+                    onClick={() => toggleLessonSpeech(cleanMarkdownForSpeech(selectedLesson.content))}
+                    className="flex items-center gap-2 text-xs font-semibold py-2 px-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 transition-all shadow-sm"
                   >
                     {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                    {isSpeaking ? "Pause Audio" : "Read Aloud"}
+                    {isSpeaking ? "Pause Audio" : `Read Aloud (${voiceGender === "male" ? "👨‍🏫 Male" : "👩‍🏫 Female"})`}
                   </button>
 
-                  <span className="text-[10px] text-gray-500 italic hidden sm:inline">Adhyaya Adaptive Learning</span>
+                  <span className="text-[10px] text-gray-500 italic hidden sm:inline">Adhyaya Neural Classroom</span>
                 </div>
               </div>
             ) : (
@@ -421,45 +600,104 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
           {/* AI Virtual Teacher Panel - Col Span 1 */}
           <div className="glass-panel rounded-xl p-5 overflow-y-auto custom-scrollbar flex flex-col items-center justify-between">
             <div className="w-full space-y-4">
-              <h3 className="font-bold text-white text-xs uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 flex items-center justify-between">
-                <span className="flex items-center gap-2">
+              
+              {/* Header with Speaking indicator */}
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
                   <Video className="w-4 h-4 text-brand-400" />
-                  AI Classroom Figurine
+                  AI Classroom Teacher
                 </span>
                 {isSpeaking && (
-                  <span className="text-[9px] text-brand-400 font-bold uppercase animate-pulse">
-                    Speaking
+                  <span className="text-[9px] text-brand-400 font-bold uppercase animate-pulse flex items-center gap-1">
+                    <Volume2 className="w-3 h-3" /> Speaking
                   </span>
                 )}
-              </h3>
+              </div>
+
+              {/* Male / Female Voice Selector */}
+              <div className="flex items-center justify-between bg-slate-900/90 border border-white/10 rounded-xl p-1 text-xs">
+                <span className="text-[10px] font-semibold text-gray-400 pl-2">Voice:</span>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceGender("male");
+                      if (setAvatarConfig) setAvatarConfig(prev => ({ ...prev, voiceGender: "male" }));
+                      stopAudio();
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                      voiceGender === "male"
+                        ? "bg-brand-500 text-white shadow-sm"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <span>👨‍🏫 Male</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceGender("female");
+                      if (setAvatarConfig) setAvatarConfig(prev => ({ ...prev, voiceGender: "female" }));
+                      stopAudio();
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                      voiceGender === "female"
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <span>👩‍🏫 Female</span>
+                  </button>
+                </div>
+              </div>
 
               {selectedLesson && (
                 <div className="space-y-4">
-                  {/* Video Screen Container */}
-                  <div className="relative rounded-xl overflow-hidden aspect-[3/4] bg-slate-950 border border-white/10 w-full shadow-inner flex flex-col items-center justify-center text-center">
-                    {cachedVideo ? (
-                      <video src={cachedVideo} controls autoPlay className="w-full h-full object-cover" />
-                    ) : avatarConfig.imageUrl ? (
-                      <div className="w-full h-full relative group flex flex-col items-center justify-center">
-                        <img 
-                          src={avatarConfig.imageUrl} 
-                          alt="Teacher Face" 
-                          className={`w-full h-full object-cover transition-all ${isSpeaking ? "scale-105" : ""}`} 
+                  {/* Video / Photo Container */}
+                  <div className="relative rounded-2xl overflow-hidden aspect-[3/4] bg-slate-950 border border-white/15 w-full shadow-2xl flex flex-col items-center justify-center text-center">
+                    {activeVideo ? (
+                      <div className="relative w-full h-full">
+                        <video
+                          src={activeVideo}
+                          controls
+                          autoPlay
+                          loop
+                          playsInline
+                          className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-slate-950/60 flex flex-col items-center justify-center p-4">
+                        <div className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-sm border border-brand-500/30 text-[9px] text-brand-300 px-2 py-0.5 rounded-full font-bold">
+                          🎬 Synced Talking Video
+                        </div>
+                      </div>
+                    ) : teacherImage ? (
+                      <div className="w-full h-full relative group flex flex-col items-center justify-center bg-slate-900">
+                        <img 
+                          src={teacherImage} 
+                          alt={avatarConfig?.name || "AI Teacher"} 
+                          className={`w-full h-full object-cover transition-all duration-300 ${isSpeaking ? "scale-105" : ""}`} 
+                        />
+                        {/* Elegant bottom control bar */}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent p-3 pt-6 flex items-center justify-between">
+                          <div className="text-left">
+                            <p className="text-[11px] font-bold text-white truncate max-w-[130px]">
+                              {avatarConfig?.name || "AI Teacher"}
+                            </p>
+                            <p className="text-[9px] text-purple-300 truncate max-w-[130px]">
+                              {isSpeaking ? (speakingStatus || "Speaking lecture...") : `${voiceGender === "male" ? "Male" : "Female"} • ${currentCourseLang?.speechLang || "Neural"}`}
+                            </p>
+                          </div>
                           <button
-                            onClick={() => toggleLessonSpeech(selectedLesson.script)}
-                            className="bg-brand-500 hover:bg-brand-600 p-3.5 rounded-full text-white shadow-xl shadow-brand-500/30 transition-transform hover:scale-110"
-                            title={isSpeaking ? "Pause Figurine" : "Speak Lesson Script"}
+                            onClick={() => {
+                              const textToSpeak = narrationMode === "content"
+                                ? cleanMarkdownForSpeech(selectedLesson.content)
+                                : (selectedLesson.script || cleanMarkdownForSpeech(selectedLesson.content));
+                              toggleLessonSpeech(textToSpeak);
+                            }}
+                            className="bg-brand-500 hover:bg-brand-600 p-2.5 rounded-full text-white shadow-lg shadow-brand-500/30 transition-transform hover:scale-110 shrink-0"
+                            title={isSpeaking ? "Pause Audio" : "Play Teacher Lecture"}
                           >
-                            {isSpeaking ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+                            {isSpeaking ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
                           </button>
-                          <p className="text-[11px] text-white font-bold mt-3">
-                            {isSpeaking ? "Teacher is Lecturing..." : "Play Live Teacher Lecture"}
-                          </p>
-                          <p className="text-[9px] text-gray-300 mt-1 max-w-[150px]">
-                            Voice synthesis + synchronized lecture narration
-                          </p>
                         </div>
                       </div>
                     ) : (
@@ -467,45 +705,87 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                       <div className="p-4 space-y-2">
                         <AlertCircle className="w-8 h-8 text-gray-500 mx-auto" />
                         <p className="text-gray-400 text-[10px]">No teacher avatar has been configured.</p>
-                        <p className="text-[9px] text-gray-500">Drop an image in the 'AI Teacher Figurine' tab to activate your classroom avatar.</p>
+                        <p className="text-[9px] text-gray-500">Drop an image in the 'AI Teacher Studio' tab to activate your classroom avatar.</p>
                       </div>
                     )}
 
+                    {/* Rendering Progress Overlay */}
                     {generatingLessonVideo && (
-                      <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-4 text-center z-10">
+                      <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-10">
                         <Loader2 className="w-8 h-8 text-brand-500 animate-spin mb-3" />
                         <p className="text-white text-xs font-semibold">Creating Lesson Lecture Video...</p>
-                        <p className="text-[8px] text-gray-400 mt-1 max-w-[150px]">Rendering D-ID cloud talk...</p>
+                        <p className="text-[9px] text-purple-300 mt-1">
+                          Narrating {narrationMode === "content" ? "Course Content" : "Intro Script"} in {currentCourseLang?.speechLang || "Indian Neural"} ({voiceGender === "male" ? "Male" : "Female"})...
+                        </p>
+                        <span className="text-[8px] text-gray-400 mt-2 font-mono">100% Free & Open-Source</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Speech Script Readout */}
-                  <div className="bg-slate-950/60 border border-white/5 rounded-lg p-3 space-y-2">
+                  {/* Narration Mode Selector & Readout */}
+                  <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-400">Teacher's Script</p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNarrationMode("content");
+                            if (isSpeaking) stopAudio();
+                          }}
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-md transition-all ${
+                            narrationMode === "content"
+                              ? "bg-brand-500 text-white shadow-sm"
+                              : "text-gray-400 hover:text-white"
+                          }`}
+                        >
+                          📖 Lesson Content
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNarrationMode("script");
+                            if (isSpeaking) stopAudio();
+                          }}
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-md transition-all ${
+                            narrationMode === "script"
+                              ? "bg-purple-600 text-white shadow-sm"
+                              : "text-gray-400 hover:text-white"
+                          }`}
+                        >
+                          🎙️ Intro Script
+                        </button>
+                      </div>
                       <button
-                        onClick={() => toggleLessonSpeech(selectedLesson.script)}
-                        className="text-[10px] text-amber-300 hover:text-white flex items-center gap-1"
+                        onClick={() => {
+                          const textToSpeak = narrationMode === "content"
+                            ? cleanMarkdownForSpeech(selectedLesson.content)
+                            : (selectedLesson.script || cleanMarkdownForSpeech(selectedLesson.content));
+                          toggleLessonSpeech(textToSpeak);
+                        }}
+                        className="text-[10px] text-amber-300 hover:text-white flex items-center gap-1 font-medium bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20"
                       >
                         {isSpeaking ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-                        {isSpeaking ? "Stop" : "Listen"}
+                        {isSpeaking ? "Stop" : `Listen (${voiceGender === "male" ? "Male" : "Female"})`}
                       </button>
                     </div>
-                    <p className="text-[10px] text-gray-400 leading-relaxed max-h-36 overflow-y-auto custom-scrollbar italic">
-                      "{selectedLesson.script}"
+                    <p className="text-[10px] text-gray-300 leading-relaxed max-h-36 overflow-y-auto custom-scrollbar italic font-normal">
+                      {narrationMode === "content"
+                        ? cleanMarkdownForSpeech(selectedLesson.content)
+                        : `"${selectedLesson.script}"`}
                     </p>
                   </div>
                 </div>
               )}
             </div>
 
-            {!generatingLessonVideo && selectedLesson && !cachedVideo && avatarConfig.imageUrl && (
+            {/* Animate Teacher Button */}
+            {!generatingLessonVideo && selectedLesson && (
               <button
                 onClick={() => handleGenerateLessonVideo(selectedLesson)}
-                className="w-full mt-4 bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 text-xs font-bold py-2 border border-brand-500/20 rounded-lg transition-all"
+                className="w-full mt-4 bg-gradient-to-r from-purple-600 via-pink-600 to-brand-500 hover:from-purple-700 hover:to-brand-600 text-white text-xs font-extrabold py-2.5 px-3 rounded-xl transition-all shadow-md shadow-purple-500/20 flex items-center justify-center gap-1.5 transform hover:scale-[1.01]"
               >
-                Render HD D-ID Video
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>🎬 Animate Teacher for This Lesson (Synced MP4)</span>
               </button>
             )}
           </div>

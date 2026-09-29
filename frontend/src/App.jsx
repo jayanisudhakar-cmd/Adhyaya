@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NeuroProvider } from "./context/NeuroContext";
+import { LanguageProvider } from "./context/LanguageContext";
 import Auth from "./components/Auth";
 import Layout from "./components/Layout";
 import Dashboard from "./components/Dashboard";
@@ -60,16 +61,52 @@ function MainApp() {
     }
   ]);
 
-  // Global avatar configurations - completely eliminated default preset faces
-  const [avatarConfig, setAvatarConfig] = useState({
-    imageUrl: "", // Left empty for direct user drop/upload
-    imageFile: null,
-    name: "My AI Teacher",
-    voiceId: "21m00Tcm4TlvDq8ikWAM",
-    voiceName: "Ananya (Warm Indian English)"
+  // Global avatar configurations - stored in localStorage for persistence across reloads/sessions
+  const [avatarConfig, setAvatarConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem("adhyaya_avatar_config");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.imageUrl || parsed.name)) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return {
+      imageUrl: "/avatars/figurine_male.jpg",
+      imageFile: null,
+      name: "Realistic AI Teacher",
+      voiceGender: "male",
+      voiceId: "en-IN-PrabhatNeural",
+      voiceName: "Prabhat (Male Indian Neural)"
+    };
   });
 
-  const [globalAvatarVideo, setGlobalAvatarVideo] = useState("");
+  const [globalAvatarVideo, setGlobalAvatarVideo] = useState(() => {
+    try {
+      return localStorage.getItem("adhyaya_global_avatar_video") || "";
+    } catch (e) {
+      return "";
+    }
+  });
+
+  // Save avatarConfig to localStorage
+  React.useEffect(() => {
+    try {
+      const { imageFile, ...serializable } = avatarConfig;
+      localStorage.setItem("adhyaya_avatar_config", JSON.stringify(serializable));
+    } catch (e) {}
+  }, [avatarConfig]);
+
+  // Save globalAvatarVideo to localStorage
+  React.useEffect(() => {
+    try {
+      if (globalAvatarVideo) {
+        localStorage.setItem("adhyaya_global_avatar_video", globalAvatarVideo);
+      }
+    } catch (e) {}
+  }, [globalAvatarVideo]);
+
   const [activeCourse, setActiveCourse] = useState(null);
 
   if (loading) {
@@ -111,7 +148,9 @@ function MainApp() {
           activeCourse={activeCourse}
           setActiveCourse={setActiveCourse}
           avatarConfig={avatarConfig}
+          setAvatarConfig={setAvatarConfig}
           globalAvatarVideo={globalAvatarVideo}
+          setGlobalAvatarVideo={setGlobalAvatarVideo}
         />
       )}
 
@@ -145,9 +184,11 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <NeuroProvider>
-        <MainApp />
-      </NeuroProvider>
+      <LanguageProvider>
+        <NeuroProvider>
+          <MainApp />
+        </NeuroProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

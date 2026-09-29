@@ -2,9 +2,11 @@ import React from "react";
 import { BookOpen, Trophy, Sparkles, Plus, Play, Award, GraduationCap, Video, MessageSquare, Gamepad2 } from "lucide-react";
 import NeuroInclusionHub from "./NeuroInclusionHub";
 import { useNeuro } from "../context/NeuroContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function Dashboard({ courses, quizzes, setActiveTab, onSelectCourse, avatarVideo, onOpenArcade }) {
   const { neuroMode } = useNeuro();
+  const { t, currentNavLang, currentCourseLang } = useLanguage();
 
   const totalCourses = courses.length;
   const totalQuizzes = quizzes.length;
@@ -29,34 +31,43 @@ export default function Dashboard({ courses, quizzes, setActiveTab, onSelectCour
       <div className="relative rounded-3xl overflow-hidden p-8 border border-white/10 bg-gradient-to-r from-slate-900 via-brand-950/20 to-slate-900 shadow-2xl">
         <div className="absolute top-0 right-0 w-96 h-full bg-gradient-to-l from-brand-500/10 via-blue-500/5 to-transparent blur-3xl -z-10 pointer-events-none"></div>
         <div className="relative z-10 space-y-4">
-          <div className="inline-flex items-center gap-2 bg-brand-500/20 border border-brand-500/30 px-3.5 py-1.5 rounded-full text-xs font-semibold text-brand-300">
-            <Sparkles className="w-3.5 h-3.5 text-brand-400" />
-            Adhyaya • Sanskrit for Chapter of Knowledge
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 bg-brand-500/20 border border-brand-500/30 px-3.5 py-1.5 rounded-full text-xs font-semibold text-brand-300">
+              <Sparkles className="w-3.5 h-3.5 text-brand-400" />
+              {t("welcomeBadge", "Adhyaya • Sanskrit for Chapter of Knowledge")}
+            </div>
+            <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/25 px-2.5 py-1 rounded-full text-[11px] text-blue-300 font-medium">
+              <span>🌐 Web: {currentNavLang.nativeName}</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 bg-purple-500/15 border border-purple-500/25 px-2.5 py-1 rounded-full text-[11px] text-purple-300 font-medium">
+              <span>🎓 Course: {currentCourseLang.label}</span>
+            </div>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
-            Personalized Learning For <span className="text-gradient-brand">Every Mind</span>.
+            {t("bannerTitle", "Personalized Learning For")}{" "}
+            <span className="text-gradient-brand">{t("bannerTitleHighlight", "Every Mind")}</span>.
           </h1>
           <p className="text-gray-400 max-w-2xl text-xs sm:text-sm leading-relaxed">
-            Welcome to Adhyaya. Whether neurotypical or thriving with Dyslexia, Dyscalculia, ADHD, Sensory needs, or Dysgraphia, study structured courses alongside your animated virtual teacher figurine and humorous AI study mentor.
+            {t("bannerDesc", "Welcome to Adhyaya. Whether neurotypical or thriving with Dyslexia, Dyscalculia, ADHD, Sensory needs, or Dysgraphia, study structured courses alongside your animated virtual teacher and humorous AI mentor.")}
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
             <button
               onClick={() => setActiveTab("courses")}
               className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition-all shadow-md shadow-brand-500/20 flex items-center gap-2"
             >
-              <Plus className="w-4 h-4" /> Create Custom Course
+              <Plus className="w-4 h-4" /> {t("btnCreateCourse", "Create Custom Course")}
             </button>
             <button
               onClick={() => onOpenArcade ? onOpenArcade("math") : setActiveTab("arcade")}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition-all shadow-md shadow-purple-500/20 flex items-center gap-2"
             >
-              <Gamepad2 className="w-4 h-4" /> Play & Learn Arcade
+              <Gamepad2 className="w-4 h-4" /> {t("btnPlayArcade", "Play & Learn Arcade")}
             </button>
             <button
               onClick={() => setActiveTab("avatar")}
               className="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition-all border border-white/10 flex items-center gap-2"
             >
-              <Video className="w-4 h-4" /> Virtual Teacher Studio
+              <Video className="w-4 h-4" /> {t("btnTeacherStudio", "Virtual Teacher Studio")}
             </button>
           </div>
         </div>
