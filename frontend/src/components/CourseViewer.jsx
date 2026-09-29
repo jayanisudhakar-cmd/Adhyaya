@@ -1,12 +1,31 @@
 import React, { useState } from "react";
 import { generateCourse, generateAvatarVideo } from "../services/api";
-import { BookOpen, Sparkles, Loader2, Play, Video, ChevronRight, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
+import { useNeuro } from "../context/NeuroContext";
+import { 
+  BookOpen, 
+  Sparkles, 
+  Loader2, 
+  Play, 
+  Pause,
+  Video, 
+  ChevronRight, 
+  CheckCircle, 
+  AlertCircle, 
+  ArrowLeft,
+  Volume2,
+  VolumeX,
+  Eye,
+  Zap,
+  Mic
+} from "lucide-react";
 
 export default function CourseViewer({ courses, setCourses, activeCourse, setActiveCourse, avatarConfig, globalAvatarVideo }) {
+  const { neuroMode } = useNeuro();
   const [topic, setTopic] = useState("");
   const [language, setLanguage] = useState("English");
   const [pace, setPace] = useState("Medium");
   const [generating, setGenerating] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   
   // Selected lesson state
   const [selectedLesson, setSelectedLesson] = useState(null);
@@ -14,6 +33,31 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
   const [lessonVideos, setLessonVideos] = useState({}); // caches generated videos: { lessonTitle: videoUrl }
   const [error, setError] = useState("");
   const [showGenerator, setShowGenerator] = useState(courses.length === 0);
+
+  const toggleLessonSpeech = (textToSpeak) => {
+    if (!window.speechSynthesis) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.02;
+
+    const voices = window.speechSynthesis.getVoices();
+    const match = voices.find(v => v.lang.includes("en-IN") || v.name.includes("India"));
+    if (match) utterance.voice = match;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleGenerateCourse = async (e) => {
     e.preventDefault();
@@ -175,13 +219,13 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
             >
               {generating ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Gemini is compiling your syllabus and writing lessons...</span>
+                  <Loader2 className="w-5 h-5 animate-spin text-brand-400" />
+                  <span>Adhyaya AI is synthesizing your syllabus and writing lessons...</span>
                 </>
               ) : (
                 <>
                   <BookOpen className="w-5 h-5" />
-                  <span>Generate Custom Course with Gemini</span>
+                  <span>Generate Custom Course with Adhyaya AI</span>
                 </>
               )}
             </button>
@@ -355,7 +399,15 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                     {activeCourse.completedLessons?.[selectedLesson.title] ? "Completed!" : "Mark Completed"}
                   </button>
 
-                  <span className="text-[10px] text-gray-500 italic">Read through before taking the test series</span>
+                  <button
+                    onClick={() => toggleLessonSpeech(selectedLesson.content)}
+                    className="flex items-center gap-2 text-xs font-semibold py-2 px-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 transition-all"
+                  >
+                    {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                    {isSpeaking ? "Pause Audio" : "Read Aloud"}
+                  </button>
+
+                  <span className="text-[10px] text-gray-500 italic hidden sm:inline">Adhyaya Adaptive Learning</span>
                 </div>
               </div>
             ) : (
@@ -369,9 +421,16 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
           {/* AI Virtual Teacher Panel - Col Span 1 */}
           <div className="glass-panel rounded-xl p-5 overflow-y-auto custom-scrollbar flex flex-col items-center justify-between">
             <div className="w-full space-y-4">
-              <h3 className="font-bold text-white text-xs uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 flex items-center gap-2">
-                <Video className="w-4 h-4 text-brand-400" />
-                AI Classroom Lecture
+              <h3 className="font-bold text-white text-xs uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Video className="w-4 h-4 text-brand-400" />
+                  AI Classroom Figurine
+                </span>
+                {isSpeaking && (
+                  <span className="text-[9px] text-brand-400 font-bold uppercase animate-pulse">
+                    Speaking
+                  </span>
+                )}
               </h3>
 
               {selectedLesson && (
@@ -380,35 +439,35 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                   <div className="relative rounded-xl overflow-hidden aspect-[3/4] bg-slate-950 border border-white/10 w-full shadow-inner flex flex-col items-center justify-center text-center">
                     {cachedVideo ? (
                       <video src={cachedVideo} controls autoPlay className="w-full h-full object-cover" />
-                    ) : globalAvatarVideo && !generatingLessonVideo ? (
-                      // Fallback to global welcome video if lesson-specific video is not generated yet
-                      <div className="w-full h-full relative group">
-                        <video src={globalAvatarVideo} controls className="w-full h-full object-cover" />
-                        <div className="absolute top-2 left-2 bg-slate-950/80 px-2 py-0.5 rounded text-[8px] font-semibold text-amber-400 border border-amber-500/20">
-                          Welcome Video Playing
-                        </div>
-                      </div>
                     ) : avatarConfig.imageUrl ? (
-                      // Show photo with play overlay to generate
-                      <div className="w-full h-full relative group">
-                        <img src={avatarConfig.imageUrl} alt="Teacher Face" className="w-full h-full object-cover" />
+                      <div className="w-full h-full relative group flex flex-col items-center justify-center">
+                        <img 
+                          src={avatarConfig.imageUrl} 
+                          alt="Teacher Face" 
+                          className={`w-full h-full object-cover transition-all ${isSpeaking ? "scale-105" : ""}`} 
+                        />
                         <div className="absolute inset-0 bg-slate-950/60 flex flex-col items-center justify-center p-4">
                           <button
-                            onClick={() => handleGenerateLessonVideo(selectedLesson)}
-                            disabled={generatingLessonVideo}
-                            className="bg-brand-500 hover:bg-brand-600 p-3 rounded-full text-white shadow-lg transition-transform hover:scale-105"
+                            onClick={() => toggleLessonSpeech(selectedLesson.script)}
+                            className="bg-brand-500 hover:bg-brand-600 p-3.5 rounded-full text-white shadow-xl shadow-brand-500/30 transition-transform hover:scale-110"
+                            title={isSpeaking ? "Pause Figurine" : "Speak Lesson Script"}
                           >
-                            <Play className="w-5 h-5 fill-current" />
+                            {isSpeaking ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
                           </button>
-                          <p className="text-[10px] text-white font-semibold mt-3">Animate Teacher Lecture</p>
-                          <p className="text-[8px] text-gray-400 mt-1 max-w-[120px]">Uses ElevenLabs voice + D-ID facial rendering</p>
+                          <p className="text-[11px] text-white font-bold mt-3">
+                            {isSpeaking ? "Teacher is Lecturing..." : "Play Live Teacher Lecture"}
+                          </p>
+                          <p className="text-[9px] text-gray-300 mt-1 max-w-[150px]">
+                            Voice synthesis + synchronized lecture narration
+                          </p>
                         </div>
                       </div>
                     ) : (
                       // Unconfigured state
-                      <div className="p-4">
-                        <AlertCircle className="w-8 h-8 text-gray-500 mx-auto mb-2" />
+                      <div className="p-4 space-y-2">
+                        <AlertCircle className="w-8 h-8 text-gray-500 mx-auto" />
                         <p className="text-gray-400 text-[10px]">No teacher avatar has been configured.</p>
+                        <p className="text-[9px] text-gray-500">Drop an image in the 'AI Teacher Figurine' tab to activate your classroom avatar.</p>
                       </div>
                     )}
 
@@ -416,14 +475,23 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                       <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-4 text-center z-10">
                         <Loader2 className="w-8 h-8 text-brand-500 animate-spin mb-3" />
                         <p className="text-white text-xs font-semibold">Creating Lesson Lecture Video...</p>
-                        <p className="text-[8px] text-gray-400 mt-1 max-w-[150px]">Calling D-ID talks API. Polling status until complete (takes ~30-60s)...</p>
+                        <p className="text-[8px] text-gray-400 mt-1 max-w-[150px]">Rendering D-ID cloud talk...</p>
                       </div>
                     )}
                   </div>
 
                   {/* Speech Script Readout */}
                   <div className="bg-slate-950/60 border border-white/5 rounded-lg p-3 space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-400">Teacher's Script</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-400">Teacher's Script</p>
+                      <button
+                        onClick={() => toggleLessonSpeech(selectedLesson.script)}
+                        className="text-[10px] text-amber-300 hover:text-white flex items-center gap-1"
+                      >
+                        {isSpeaking ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                        {isSpeaking ? "Stop" : "Listen"}
+                      </button>
+                    </div>
                     <p className="text-[10px] text-gray-400 leading-relaxed max-h-36 overflow-y-auto custom-scrollbar italic">
                       "{selectedLesson.script}"
                     </p>
@@ -437,7 +505,7 @@ export default function CourseViewer({ courses, setCourses, activeCourse, setAct
                 onClick={() => handleGenerateLessonVideo(selectedLesson)}
                 className="w-full mt-4 bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 text-xs font-bold py-2 border border-brand-500/20 rounded-lg transition-all"
               >
-                Generate Custom Class Lecture
+                Render HD D-ID Video
               </button>
             )}
           </div>

@@ -27,11 +27,11 @@ export default function Layout({ children, activeTab, setActiveTab }) {
         <div>
           {/* Logo */}
           <div className="p-6 border-b border-white/5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-500 to-blue-500 flex items-center justify-center shadow-lg shadow-brand-500/10">
-              <GraduationCap className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-500 to-blue-500 flex items-center justify-center shadow-lg shadow-brand-500/10 font-black text-lg">
+              अ
             </div>
             <div>
-              <h2 className="font-bold text-white tracking-tight leading-none">Namma Guru</h2>
+              <h2 className="font-extrabold text-white tracking-tight leading-none text-base">Adhyaya</h2>
               <span className="text-[10px] text-brand-400 font-semibold tracking-wider uppercase">AI Academy</span>
             </div>
           </div>
@@ -82,8 +82,10 @@ export default function Layout({ children, activeTab, setActiveTab }) {
         {/* Header Bar */}
         <header className="h-16 glass-panel border-b border-white/5 flex items-center justify-between px-6 z-10 shrink-0">
           <div className="flex items-center gap-3 md:hidden">
-            <GraduationCap className="w-8 h-8 text-brand-500" />
-            <span className="font-bold text-white tracking-tight">Namma Guru</span>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-500 to-blue-500 flex items-center justify-center font-bold text-white text-sm">
+              अ
+            </div>
+            <span className="font-bold text-white tracking-tight">Adhyaya</span>
           </div>
 
           <div className="hidden md:flex items-center gap-2">

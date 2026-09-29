@@ -3,9 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes import course, avatar
 
 app = FastAPI(
-    title="Namma Guru - Personalized AI Education Platform API",
-    description="Backend API powering course, test, and AI virtual teacher avatar generation.",
-    version="1.0.0"
+    title="Adhyaya - Personalized AI Education Platform API",
+    description="Backend API powering customized courses, tests, neurodivergent tutoring, and AI virtual teacher avatar generation.",
+    version="2.0.0"
 )
 
 # Enable CORS for the frontend React app (typically http://localhost:5173 during Vite development)
@@ -24,7 +24,7 @@ app.include_router(avatar.router)
 @app.get("/")
 def read_root():
     return {
-        "message": "Welcome to Namma Guru AI Education Platform API!",
+        "message": "Welcome to Adhyaya AI Education Platform API!",
         "status": "online",
         "docs_url": "/docs"
     }

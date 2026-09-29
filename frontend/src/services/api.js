@@ -54,3 +54,35 @@ export async function generateAvatarVideo(imageSource, script, voiceId = "21m00T
   }
   return response.json();
 }
+
+export async function sendChatMessage(message, history = [], neuroMode = "standard", language = "English") {
+  const response = await fetch(`${API_BASE_URL}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message,
+      history,
+      neuro_mode: neuroMode,
+      language
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Guru Ji is momentarily meditating (connection error). Try again!");
+  }
+  return response.json();
+}
+
+export async function updateApiKey(geminiKey) {
+  const response = await fetch(`${API_BASE_URL}/config/set-key`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ gemini_api_key: geminiKey }),
+  });
+  return response.json();
+}

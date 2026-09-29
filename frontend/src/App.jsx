@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { NeuroProvider } from "./context/NeuroContext";
 import Auth from "./components/Auth";
 import Layout from "./components/Layout";
 import Dashboard from "./components/Dashboard";
 import CourseViewer from "./components/CourseViewer";
 import TestGenerator from "./components/TestGenerator";
 import AvatarUpload from "./components/AvatarUpload";
+import Chatbot from "./components/Chatbot";
 
 function MainApp() {
   const { user, loading } = useAuth();
@@ -14,26 +16,26 @@ function MainApp() {
   // Custom courses and quizzes generated in session
   const [courses, setCourses] = useState([
     {
-      title: "Introduction to FastAPI Framework",
-      description: "Learn the core concepts of FastAPI: path parameters, query parameters, Pydantic validation, and setting up clean routers.",
+      title: "Foundations of Python & Logical Thinking",
+      description: "Learn foundational concepts of programming: variables, flow control, functions, and algorithmic intuition designed for clear mental models.",
       pace: "Medium",
       completedCount: 1,
       completedLessons: {
-        "What is FastAPI?": true
+        "What is Programming?": true
       },
       modules: [
         {
-          module_title: "Getting Started",
+          module_title: "Core Computational Thinking",
           lessons: [
             {
-              title: "What is FastAPI?",
-              content: "FastAPI is a modern, fast (high-performance), web framework for building APIs with Python 3.8+ based on standard Python type hints.\n\nKey features include extreme speed, high code-readability, automated Swagger documentation, and robust Pydantic schemas validation. In this lesson, we will set up our first endpoint returning a classic Hello World dictionary object.",
-              script: "Welcome to Namma Guru! Today we are exploring FastAPI, a lightning-fast framework for building modern Python APIs. We'll set up a simple endpoint and look at how Python type hints automate API validation. Let's get started!"
+              title: "What is Programming?",
+              content: "Programming is the art of communicating structured logic to a computer to solve meaningful problems.\n\nKey pillars include input, transformation, state management, and output. In this lesson, we demystify algorithms through intuitive everyday analogies like following a cooking recipe or coordinating a team.",
+              script: "Namaste and welcome to Adhyaya! Today we are exploring the foundations of logical thinking and programming. We will break down instructions into clean, bite-sized steps. Let's get started!"
             },
             {
-              title: "Path and Query Parameters",
-              content: "FastAPI allows capturing variables in the URL path, as well as optional query parameters.\n\nPath parameters are declared inside curly brackets (e.g. `/items/{item_id}`) and map to python function parameters. Query parameters are any parameters not matching path placeholders. FastAPI automatically validates type hints and displays parameters cleanly inside the automated Swagger docs.",
-              script: "In this lesson, we will learn about URL path variables and query parameters. FastAPI validates these automatically using Python's native type annotations, ensuring client requests are format-validated before reaching your route logic."
+              title: "Variables and State",
+              content: "Variables act like labeled storage boxes in your computer's memory.\n\nWhether holding text, numbers, or true/false conditions, understanding variables allows your programs to remember facts, track scores, and adapt dynamically to student inputs.",
+              script: "In this second lesson, we look at variables. Think of them like labeled containers in your study desk—each one holds a specific item for quick retrieval whenever you need it."
             }
           ]
         }
@@ -43,26 +45,26 @@ function MainApp() {
 
   const [quizzes, setQuizzes] = useState([
     {
-      topic: "FastAPI Basics",
+      topic: "Python & Logic Basics",
       level: "Easy",
       questions: [
         {
-          question_text: "Which Python package validates data schemas in FastAPI?",
-          options: ["Pydantic", "SQLAlchemy", "Jinja2", "Requests"],
-          correct_option: "Pydantic",
-          explanation: "FastAPI relies on Pydantic schemas to validate query, path, and request body parameters automatically."
+          question_text: "What is the primary role of a variable in a computer program?",
+          options: ["To store and reference data in memory", "To delete files randomly", "To slow down execution", "To turn off the screen"],
+          correct_option: "To store and reference data in memory",
+          explanation: "Variables act as labeled storage locations in memory that hold data values for computation and recall."
         }
       ]
     }
   ]);
 
-  // Global avatar configurations
+  // Global avatar configurations - completely eliminated default preset faces
   const [avatarConfig, setAvatarConfig] = useState({
-    imageUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face", // default Sarah image
-    imageFile: null, // holds local File objects uploaded via Dropbox
-    name: "Sarah (Math & Sci)",
+    imageUrl: "", // Left empty for direct user drop/upload
+    imageFile: null,
+    name: "My AI Teacher",
     voiceId: "21m00Tcm4TlvDq8ikWAM",
-    voiceName: "Rachel (Warm, Professional)"
+    voiceName: "Ananya (Warm Indian English)"
   });
 
   const [globalAvatarVideo, setGlobalAvatarVideo] = useState("");
@@ -71,8 +73,11 @@ function MainApp() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#080c14] text-white">
-        <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-xs font-semibold text-gray-500 uppercase tracking-widest">Loading Namma Guru...</p>
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-500 to-blue-500 flex items-center justify-center text-3xl font-black mb-4 animate-pulse">
+          अ
+        </div>
+        <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-xs font-semibold text-gray-400 uppercase tracking-widest">Loading Adhyaya...</p>
       </div>
     );
   }
@@ -118,6 +123,9 @@ function MainApp() {
           setGlobalAvatarVideo={setGlobalAvatarVideo}
         />
       )}
+
+      {/* Indianized Humorous Chatbot Guru Ji */}
+      <Chatbot />
     </Layout>
   );
 }
@@ -125,7 +133,9 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <NeuroProvider>
+        <MainApp />
+      </NeuroProvider>
     </AuthProvider>
   );
 }

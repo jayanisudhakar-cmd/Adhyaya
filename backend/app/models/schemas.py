@@ -40,3 +40,18 @@ class AvatarRequest(BaseModel):
     image_url: str = Field(..., description="URL of the teacher avatar image")
     script: str = Field(..., description="Script text that ElevenLabs and D-ID will say")
     voice_id: str = Field(default="21m00Tcm4TlvDq8ikWAM", description="ElevenLabs Voice ID (default: Rachel)")
+
+class ChatMessage(BaseModel):
+    role: str = Field(default="user", description="user or assistant")
+    content: str
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[List[ChatMessage]] = []
+    neuro_mode: Optional[str] = "standard"
+    language: Optional[str] = "English"
+
+class ChatResponse(BaseModel):
+    reply: str
+    humor_note: Optional[str] = None
+    quick_tips: Optional[List[str]] = []

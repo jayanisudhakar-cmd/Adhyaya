@@ -38,12 +38,12 @@ export default function Auth() {
 
       <div className="w-full max-w-md glass-panel rounded-2xl p-8 shadow-2xl relative border border-white/5">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-500 to-blue-500 flex items-center justify-center mb-4 shadow-lg shadow-brand-500/20">
-            <GraduationCap className="w-9 h-9 text-white" />
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-500 to-blue-500 flex items-center justify-center mb-4 shadow-lg shadow-brand-500/20 text-3xl font-black text-white">
+            अ
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Namma Guru</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Adhyaya</h1>
           <p className="text-gray-400 mt-2 text-sm text-center">
-            {isSignUp ? "Create an account to start your personalized learning journey" : "Welcome back! Login to your custom learning space"}
+            {isSignUp ? "Create your Adhyaya account for personalized inclusive education" : "Welcome back to your personalized Adhyaya learning space"}
           </p>
         </div>
 
