@@ -607,30 +607,57 @@ export default function AvatarUpload({ avatarConfig, setAvatarConfig, setGlobalA
                     </div>
                   </div>
 
-                  {/* Optional Gemini API Key */}
-                  <div className="space-y-1">
+                  {/* Optional External API Key */}
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-gray-300 flex items-center gap-1">
-                        <Key className="w-3 h-3 text-amber-300" />
-                        Gemini Key:
+                      <label className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-amber-300" />
+                        External AI Key:
                       </label>
-                      <span className="text-[9px] text-gray-400">(Optional)</span>
+                      <span className="text-[9px] text-gray-400 font-medium">(Optional)</span>
                     </div>
                     <div className="relative">
                       <input
                         type={showApiKey ? "text" : "password"}
-                        placeholder="AIzaSy... (or use free neural)"
+                        placeholder="Google Gemini (AIzaSy...) or HuggingFace (hf_...) - Or leave blank"
                         value={geminiApiKey}
                         onChange={(e) => setGeminiApiKey(e.target.value)}
-                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl py-2 pl-3 pr-7 text-white text-[11px] placeholder-gray-500 focus:outline-none focus:border-purple-500 font-mono"
+                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl py-2 pl-3 pr-8 text-white text-[11px] placeholder-gray-500 focus:outline-none focus:border-purple-500 font-mono"
                       />
                       <button
                         type="button"
                         onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-2 top-2.5 text-gray-400 hover:text-white"
+                        className="absolute right-2.5 top-2.5 text-gray-400 hover:text-white transition-colors"
                       >
-                        {showApiKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px]">
+                      {geminiApiKey.startsWith("AIzaSy") ? (
+                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                          ✓ Google Imagen 3 Engine Active
+                        </span>
+                      ) : geminiApiKey.startsWith("hf_") ? (
+                        <span className="text-sky-400 font-semibold flex items-center gap-1">
+                          ✓ Hugging Face FLUX.1 Engine Active
+                        </span>
+                      ) : geminiApiKey.trim() ? (
+                        <span className="text-amber-400 font-semibold">
+                          Custom Key configured
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-[9px]">
+                          ⚡ Free Live Neural & Studio HD Library (No Key Required)
+                        </span>
+                      )}
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-purple-400 hover:text-purple-300 text-[9px] underline underline-offset-2"
+                      >
+                        Get free Gemini Key →
+                      </a>
                     </div>
                   </div>
                 </div>

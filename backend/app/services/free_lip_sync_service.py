@@ -41,6 +41,22 @@ class FreeLipSyncService:
         self.face_cascade = cv2.CascadeClassifier(cascade_path)
         self.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
 
+        # Load OpenCV YuNet Neural Face & Facial Landmark Detector (5-point precision landmarks)
+        self.yunet_model_path = os.path.join(self.checkpoints_dir, "face_detection_yunet_2023mar.onnx")
+        self.yunet_detector = None
+        if os.path.exists(self.yunet_model_path) and hasattr(cv2, "FaceDetectorYN"):
+            try:
+                self.yunet_detector = cv2.FaceDetectorYN.create(
+                    model=self.yunet_model_path,
+                    config="",
+                    input_size=(512, 512),
+                    score_threshold=0.6,
+                    nms_threshold=0.3,
+                    top_k=5000
+                )
+            except Exception as e:
+                print(f"[FreeLipSync] YuNet detector init warning: {e}")
+
         # Free Neural Voice mapping for Edge-TTS
         self.edge_voice_map = {
             "kn": {"male": "kn-IN-GaganNeural", "female": "kn-IN-SapnaNeural"},
@@ -166,16 +182,77 @@ class FreeLipSyncService:
                 except Exception:
                     pass
 
-    def _detect_face_and_mouth(self, img_bgr: np.ndarray, image_path: str = "") -> Tuple[int, int, int, int]:
+    def _refine_oral_fissure(self, img_gray: np.ndarray, cx: int, cy_base: int, rx: int, ry: int) -> int:
         """
-        Detects face and determines proportionate, natural mouth coordinates (cx, cy, radius_x, radius_y).
-        Ensures the mouth is placed directly on the teacher's lips (NEVER on the neck, sari, collar, or chest!).
+        Refines vertical mouth coordinate to land with sub-pixel precision directly on the lip seam
+        (oral fissure), avoiding placement too high (philtrum/upper lip) or too low (chin crease).
+        """
+        H, W = img_gray.shape
+        y_min = max(0, cy_base - int(ry * 0.5))
+        y_max = min(H, cy_base + int(ry * 1.5))
+        x_min = max(0, cx - 4)
+        x_max = min(W, cx + 5)
+
+        strip = img_gray[y_min:y_max, x_min:x_max]
+        if strip.size == 0:
+            return cy_base
+
+        profile = np.mean(strip, axis=1)
+
+        # 1. Smile with visible upper teeth: look for bright teeth band (>168) followed by sharp drop
+        for i in range(len(profile) - 2):
+            if profile[i] > 168 and (profile[i] - profile[min(len(profile) - 1, i + 3)]) > 35:
+                return y_min + i + 1
+
+        # 2. Closed / resting lips: oral fissure is the darkest seam line (minimum intensity)
+        return y_min + int(np.argmin(profile))
+
+    def _detect_face_and_mouth(self, img_bgr: np.ndarray, image_path: str = "") -> Tuple[int, int, int, int, float]:
+        """
+        Detects face and determines proportionate, natural mouth coordinates (cx, cy, rx, ry, angle).
+        Uses deep-learning YuNet 5-point facial landmark detection to match the exact lip seam.
+        Ensures the mouth is placed directly on the teacher's lips (NEVER above on philtrum, below on chin, or on chest!).
         """
         H, W, _ = img_bgr.shape
         fname = os.path.basename(image_path).lower() if image_path else ""
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
-        # 1. Exact Fingerprint Signatures for Known Teacher Figurine Assets
-        # Sample corner pixels with tolerance to handle resized or re-encoded images (512, 1024, etc.)
+        # 1. Deep Learning Facial Landmark Detection (YuNet) - Primary Engine for Realistic AI Pictures
+        if self.yunet_detector is not None:
+            try:
+                self.yunet_detector.setInputSize((W, H))
+                faces = self.yunet_detector.detect(img_bgr)
+                if faces[1] is not None and len(faces[1]) > 0:
+                    # Select face in upper portrait area
+                    valid = [f for f in faces[1] if f[1] < H * 0.60]
+                    if not valid:
+                        valid = faces[1]
+                    face = max(valid, key=lambda f: f[2] * f[3])
+
+                    rcm_x, rcm_y = face[10:12] # Right mouth corner
+                    lcm_x, lcm_y = face[12:14] # Left mouth corner
+                    nt_x, nt_y = face[8:10]   # Nose tip
+
+                    # Mathematical center between the two lip corners
+                    cx = int(round((rcm_x + lcm_x) / 2.0))
+                    cy_base = int(round((rcm_y + lcm_y) / 2.0))
+                    mw = math.hypot(lcm_x - rcm_x, lcm_y - rcm_y)
+                    rx = max(8, int(round(mw * 0.48)))
+                    ry = max(3, int(round(mw * 0.16)))
+                    angle = float(math.degrees(math.atan2(lcm_y - rcm_y, lcm_x - rcm_x)))
+
+                    # Sub-pixel vertical refinement of oral fissure (lip seam)
+                    cy = self._refine_oral_fissure(gray, cx, cy_base, rx, ry)
+
+                    # Ensure mouth is strictly below nose tip
+                    if cy <= nt_y + 3:
+                        cy = int(nt_y + max(6.0, (cy_base - nt_y) * 1.1))
+
+                    return cx, cy, rx, ry, angle
+            except Exception as e:
+                print(f"[FreeLipSync] YuNet landmark detection notice: {e}")
+
+        # 2. Exact Fingerprint Signatures for Known Teacher Figurine Assets
         tl = img_bgr[min(5, H - 1), min(5, W - 1)].astype(int)
         is_female_fig = (
             ("figurine_female" in fname) or
@@ -187,16 +264,13 @@ class FreeLipSyncService:
         )
 
         if is_female_fig:
-            # Exact female figurine mouth center: X=51.0% W, Y=34.7% H (directly on lips, never on sari/chest)
-            return int(W * 0.510), int(H * 0.347), max(7, int(W * 0.022)), max(2, int(H * 0.007))
+            return int(W * 0.510), int(H * 0.347), max(7, int(W * 0.022)), max(2, int(H * 0.007)), 0.0
         elif is_male_fig:
-            # Exact male figurine mouth center: X=49.5% W, Y=30.8% H (directly on lips, above collar/chest)
-            return int(W * 0.495), int(H * 0.308), max(7, int(W * 0.022)), max(2, int(H * 0.007))
+            return int(W * 0.495), int(H * 0.308), max(7, int(W * 0.022)), max(2, int(H * 0.007)), 0.0
         elif any(k in fname for k in ["avatar_2d_priya", "avatar_2d_kabir", "avatar_2d_ananya", "avatar_2d_rohan"]):
-            return int(W * 0.50), int(H * 0.52), max(7, int(W * 0.030)), max(2, int(H * 0.009))
+            return int(W * 0.50), int(H * 0.52), max(7, int(W * 0.030)), max(2, int(H * 0.009)), 0.0
 
-        # 2. Dynamic Face Detection with Strict Upper-Body Bias (rejecting false detections on torso/chest)
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        # 3. Dynamic Haar Cascade Face Detection with Strict Upper-Body Bias
         faces = self.face_cascade.detectMultiScale(
             gray,
             scaleFactor=1.1,
@@ -204,29 +278,18 @@ class FreeLipSyncService:
             minSize=(int(W * 0.16), int(H * 0.16))
         )
 
-        # Retain only faces located strictly in the upper portion of the portrait (fy < H * 0.36)
         valid_faces = [f for f in faces if f[1] < H * 0.36]
         if len(valid_faces) > 0:
             fx, fy, fw, fh = max(valid_faces, key=lambda f: f[2] * f[3])
             cx = fx + fw // 2
-
-            # Auto-detect oral fissure (dark seam line between lips)
-            y_start = fy + int(fh * 0.65)
-            y_end = min(H, fy + int(fh * 0.82))
-            col_slice = gray[y_start:y_end, max(0, cx - 6):min(W, cx + 7)]
-            if col_slice.size > 0:
-                row_intensities = np.mean(col_slice, axis=1)
-                cy = y_start + int(np.argmin(row_intensities))
-            else:
-                cy = fy + int(fh * 0.74)
-
-            # Strict anatomical clamp: lips never exceed 0.48 * H on portraits
+            cy_base = fy + int(fh * 0.74)
+            rx = max(8, int(fw * 0.18))
+            ry = max(3, int(fh * 0.05))
+            cy = self._refine_oral_fissure(gray, cx, cy_base, rx, ry)
             cy = min(cy, int(H * 0.48))
-            rx = max(8, int(fw * 0.082))
-            ry = max(2, int(fh * 0.016))
-            return cx, cy, rx, ry
+            return cx, cy, rx, ry, 0.0
 
-        # 3. Eye Cascade Fallback (for stylized/3D art where face cascade misses)
+        # 4. Eye Cascade Fallback
         eyes = self.eye_cascade.detectMultiScale(
             gray,
             scaleFactor=1.1,
@@ -241,18 +304,19 @@ class FreeLipSyncService:
             eye_cy = (e1[1] + e1[3] // 2 + e2[1] + e2[3] // 2) // 2
             eye_dist = abs((e2[0] + e2[2] // 2) - (e1[0] + e1[2] // 2))
             cx = eye_cx
-            cy = min(int(H * 0.46), eye_cy + int(eye_dist * 0.70))
+            cy_base = min(int(H * 0.46), eye_cy + int(eye_dist * 0.70))
             rx = max(7, int(eye_dist * 0.26))
             ry = max(2, int(eye_dist * 0.06))
-            return cx, cy, rx, ry
+            cy = self._refine_oral_fissure(gray, cx, cy_base, rx, ry)
+            return cx, cy, rx, ry, 0.0
 
-        # 4. Standard Anatomical Portrait Mouth Fallback (strict upper third at Y = 0.34 H, NEVER chest)
+        # 5. Standard Anatomical Portrait Mouth Fallback (strict upper third, NEVER chest)
         cx = W // 2
         cy = int(H * 0.34)
         rx = max(7, int(W * 0.024))
         ry = max(2, int(H * 0.007))
 
-        return cx, cy, rx, ry
+        return cx, cy, rx, ry, 0.0
 
     def generate_talking_avatar_video(
         self,
@@ -303,7 +367,7 @@ class FreeLipSyncService:
         img = cv2.resize(img, (target_w, target_h))
 
         # Detect face & mouth coordinates
-        cx, cy, rx, ry = self._detect_face_and_mouth(img, image_path=image_path)
+        cx, cy, rx, ry, angle = self._detect_face_and_mouth(img, image_path=image_path)
 
         # Sample median lip mucosa tone for seamless blending
         sample_y_start = min(target_h - 2, max(0, cy + 1))
@@ -377,60 +441,63 @@ class FreeLipSyncService:
                 else:
                     smooth_k = smooth_k * 0.65 + target_k * 0.35
 
-                # 3. Render proportionate animated mouth with feathered alpha blending
-                if smooth_k > 0.035:
-                    # Natural conversational opening: horizontal width remains stable, vertical opening expands subtly
-                    cur_rx = int(rx * 0.95)
-                    cur_ry = max(1, int(ry * (0.30 + 0.70 * smooth_k)))
+                # 3. Organic Lip Deforming & Dynamic Oral Parting (Spine2D / Live2D kinematics)
+                if smooth_k > 0.03:
+                    # Bounding box around the mouth
+                    w_box = max(16, int(rx * 1.25))
+                    h_box = max(12, int(ry * 3.5))
 
-                    # Extract local patch around mouth
-                    x1 = max(0, cur_cx - cur_rx - 5)
-                    x2 = min(target_w, cur_cx + cur_rx + 5)
-                    y1 = max(0, cur_cy - cur_ry - 5)
-                    y2 = min(target_h, cur_cy + cur_ry + 5)
+                    x0 = max(0, cur_cx - w_box)
+                    x1 = min(target_w, cur_cx + w_box)
+                    y0 = max(0, cur_cy - int(ry * 0.8))
+                    y1 = min(target_h, cur_cy + h_box)
 
-                    if x2 > x1 and y2 > y1:
-                        patch = frame[y1:y2, x1:x2].astype(np.float32)
-                        ph, pw, _ = patch.shape
+                    if x1 > x0 and y1 > y0:
+                        roi = frame[y0:y1, x0:x1].copy()
+                        rh, rw, _ = roi.shape
 
-                        # Soft feathered alpha mask with Gaussian smoothing
-                        mask = np.zeros((ph, pw), dtype=np.float32)
-                        pcx = cur_cx - x1
-                        pcy = cur_cy - y1
-                        cv2.ellipse(mask, (pcx, pcy), (cur_rx, cur_ry), 0, 0, 360, 1.0, -1)
-                        mask = cv2.GaussianBlur(mask, (5, 5), 1.2)
+                        # Normalized horizontal weights (quadratic falloff from mouth center)
+                        norm_x = np.abs(np.arange(rw) - (cur_cx - x0)) / float(w_box)
+                        weights_x = np.clip(1.0 - norm_x**2, 0.0, 1.0).astype(np.float32)
 
-                        # Natural oral cavity tone: warm burgundy/rose mucosa (harmonizes with teacher's face)
-                        cavity = np.zeros_like(patch)
-                        cavity[:, :] = (
-                            max(24.0, lip_color[0] * 0.45),
-                            max(18.0, lip_color[1] * 0.35),
-                            max(35.0, lip_color[2] * 0.50)
+                        # Warp lower lip downward proportional to speech energy
+                        max_shift = float(smooth_k * max(2.5, ry * 0.9))
+                        local_cy = cur_cy - y0
+
+                        map_x = np.tile(np.arange(rw, dtype=np.float32), (rh, 1))
+                        map_y = np.tile(np.arange(rh, dtype=np.float32)[:, np.newaxis], (1, rw))
+
+                        for r in range(max(0, local_cy), rh):
+                            dy_factor = np.clip(1.0 - (r - local_cy) / float(h_box), 0.0, 1.0)
+                            map_y[r, :] -= (max_shift * dy_factor) * weights_x
+
+                        warped_roi = cv2.remap(roi, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+
+                        # Precise downward cavity opening strictly starting from lip seam (never above on upper lip)
+                        open_h = max(2, int(smooth_k * max(2.0, ry * 0.70)))
+                        shadow_mask = np.zeros((rh, rw), dtype=np.float32)
+                        cavity_cy = local_cy + max(1, open_h // 2)
+                        cavity_ry = max(1, open_h // 2)
+
+                        cv2.ellipse(
+                            shadow_mask,
+                            (cur_cx - x0, cavity_cy),
+                            (max(6, int(rx * 0.88)), cavity_ry),
+                            angle, 0, 360, 1.0, -1
                         )
+                        shadow_mask = cv2.GaussianBlur(shadow_mask, (5, 3), 0.8)
 
-                        # Delicate teeth hint only on wider enunciations
-                        if smooth_k > 0.45:
-                            teeth_mask = np.zeros((ph, pw), dtype=np.float32)
-                            tw = max(4, int(cur_rx * 0.50))
-                            th = max(1, int(cur_ry * 0.22))
-                            cv2.ellipse(teeth_mask, (pcx, pcy - cur_ry + th + 1), (tw, th), 0, 0, 180, 1.0, -1)
-                            teeth_mask = cv2.GaussianBlur(teeth_mask, (3, 3), 0.8)
-                            teeth_color = np.array([218, 220, 224], dtype=np.float32)
-                            for c in range(3):
-                                cavity[:, :, c] = cavity[:, :, c] * (1.0 - teeth_mask * 0.60) + teeth_color[c] * (teeth_mask * 0.60)
+                        # Deep mucosal shadow (never pitch black, harmonizes with teacher's complexion)
+                        shadow_color = np.array([
+                            max(20.0, lip_color[0] * 0.38),
+                            max(14.0, lip_color[1] * 0.28),
+                            max(28.0, lip_color[2] * 0.42)
+                        ], dtype=np.float32)
 
-                        # Feathered alpha blend onto frame
-                        alpha = np.expand_dims(mask, axis=2) * (0.65 + 0.15 * smooth_k)
-                        blended = patch * (1.0 - alpha) + cavity * alpha
-                        frame[y1:y2, x1:x2] = np.clip(blended, 0, 255).astype(np.uint8)
+                        alpha_s = np.expand_dims(shadow_mask, axis=2) * (0.60 + 0.15 * smooth_k)
+                        blended_roi = warped_roi.astype(np.float32) * (1.0 - alpha_s) + shadow_color * alpha_s
 
-                        # Subtle lower lip shadow contour
-                        if cur_ry >= 2:
-                            cv2.ellipse(frame, (cur_cx, cur_cy + cur_ry), (int(cur_rx * 0.70), 1), 0, 0, 180, (
-                                int(max(15.0, lip_color[0] * 0.70)),
-                                int(max(15.0, lip_color[1] * 0.65)),
-                                int(max(25.0, lip_color[2] * 0.75))
-                            ), 1)
+                        frame[y0:y1, x0:x1] = np.clip(blended_roi, 0, 255).astype(np.uint8)
 
                 # Write raw BGR frame to FFmpeg pipe
                 proc.stdin.write(frame.tobytes())

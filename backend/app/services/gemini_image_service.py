@@ -68,11 +68,11 @@ class GeminiImageService:
         file_id = f"gemini_real_{uuid.uuid4().hex[:10]}"
         output_path = os.path.join(self.avatars_dir, f"{file_id}.jpg")
 
-        # 1. Resolve Gemini API key
+        # 1. Resolve API key
         key_to_use = (gemini_api_key or settings.GEMINI_API_KEY or "").strip()
 
-        # 2. Try Google Imagen 3 API if key appears to be a Google API key
-        if key_to_use and (key_to_use.startswith("AIzaSy") or len(key_to_use) >= 30):
+        # 2. Try Google Imagen 3 API if key is a valid Google AI Studio key (starts with AIzaSy)
+        if key_to_use and key_to_use.startswith("AIzaSy"):
             try:
                 logger.info("[GeminiImageService] Attempting Google Imagen 3 API call...")
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={key_to_use}"
@@ -101,26 +101,76 @@ class GeminiImageService:
             except Exception as e:
                 logger.warning(f"[GeminiImageService] Imagen 3 error: {e}")
 
-        # 3. High-Fidelity Neural Fallback (Pollinations Turbo / Realism)
+        # 3. Try Hugging Face Inference API if user provided a HuggingFace token (starts with hf_)
+        if key_to_use and key_to_use.startswith("hf_"):
+            try:
+                logger.info("[GeminiImageService] Attempting Hugging Face FLUX.1 inference...")
+                hf_url = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
+                headers = {"Authorization": f"Bearer {key_to_use}", "Content-Type": "application/json"}
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(hf_url, headers=headers, json={"inputs": enhanced_prompt})
+                    if resp.status_code == 200 and "image" in resp.headers.get("content-type", ""):
+                        with open(output_path, "wb") as f:
+                            f.write(resp.content)
+                        rel_url = f"/static/avatars/{os.path.basename(output_path)}"
+                        return output_path, rel_url, "Hugging Face FLUX.1"
+            except Exception as e:
+                logger.warning(f"[GeminiImageService] Hugging Face error: {e}")
+
+        # 4. High-Fidelity Neural Fallback (Pollinations Turbo / Realism if available)
         try:
-            logger.info("[GeminiImageService] Calling Neural Realism Engine...")
-            encoded_prompt = urllib.parse.quote(enhanced_prompt)
+            logger.info("[GeminiImageService] Attempting live Neural Realism generation...")
+            encoded_prompt = urllib.parse.quote(enhanced_prompt[:120])
             seed = uuid.uuid4().int % 999999
-            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=turbo&width=512&height=512&nologo=true&seed={seed}"
-            async with httpx.AsyncClient(timeout=25.0) as client:
-                resp = await client.get(url)
+            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&nologo=true&seed={seed}"
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
                 if resp.status_code == 200 and "image" in resp.headers.get("content-type", ""):
                     with open(output_path, "wb") as f:
                         f.write(resp.content)
                     rel_url = f"/static/avatars/{os.path.basename(output_path)}"
                     return output_path, rel_url, "Enhanced Neural Realism (Flux/Turbo)"
+                else:
+                    logger.info(f"[GeminiImageService] Neural API status {resp.status_code}, activating curated studio library...")
         except Exception as e:
-            logger.warning(f"[GeminiImageService] Neural fallback error: {e}")
+            logger.info(f"[GeminiImageService] Live neural generator unavailable: {e}")
 
-        # 4. Built-in High-Definition Master Realism Presets
+        # 5. Prompt-Aware Curated HD Realistic Educator Library
+        p_lower = prompt.lower()
+        is_male = any(w in p_lower for w in ["male", "man", "sir", "mr", "professor", "kabir", "rohan", "boy", "he", "his"])
+        realistic_dir = os.path.join(self.base_dir, "..", "frontend", "public", "avatars", "realistic")
+
+        if os.path.exists(realistic_dir):
+            if is_male:
+                if any(w in p_lower for w in ["tech", "coding", "python", "ai", "computer", "young", "data"]):
+                    chosen = "male_tech_tutor.jpg"
+                elif any(w in p_lower for w in ["academic", "glasses", "science", "math", "book", "physics"]):
+                    chosen = "male_academic_glasses.jpg"
+                elif any(w in p_lower for w in ["class", "school", "lecture", "student", "teacher"]):
+                    chosen = "male_teacher_class.jpg"
+                else:
+                    chosen = "male_professor_suit.jpg"
+            else:
+                if any(w in p_lower for w in ["math", "teal", "saree", "physics", "science", "formula"]):
+                    chosen = "female_math_teal.jpg"
+                elif any(w in p_lower for w in ["young", "tutor", "modern", "college", "friendly"]):
+                    chosen = "female_young_tutor.jpg"
+                elif any(w in p_lower for w in ["academic", "glasses", "professor", "senior", "phd"]):
+                    chosen = "female_academic_glasses.jpg"
+                else:
+                    chosen = "female_teacher_class.jpg"
+
+            chosen_path = os.path.join(realistic_dir, chosen)
+            if os.path.exists(chosen_path):
+                with open(chosen_path, "rb") as sf:
+                    data = sf.read()
+                with open(output_path, "wb") as df:
+                    df.write(data)
+                rel_url = f"/static/avatars/{os.path.basename(output_path)}"
+                return output_path, rel_url, "Curated Studio Portrait (HD Realistic)"
+
+        # 6. Built-in High-Definition Master Realism Presets
         logger.info("[GeminiImageService] Using built-in master realistic teacher asset...")
-        # Determine closest gender
-        is_male = any(w in prompt.lower() for w in ["male", "man", "sir", "mr", "professor", "kabir", "rohan", "boy"])
         source_name = "figurine_male.jpg" if is_male else "figurine_female.jpg"
         source_path = os.path.join(self.base_dir, "..", "frontend", "public", "avatars", source_name)
         

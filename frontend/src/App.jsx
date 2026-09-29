@@ -11,40 +11,37 @@ import AvatarUpload from "./components/AvatarUpload";
 import Chatbot from "./components/Chatbot";
 import GameArcade from "./components/GameArcade";
 
+import { useLanguage } from "./context/LanguageContext";
+import { getBuiltinCourse, BUILTIN_COURSES } from "./data/coursesData";
+
 function MainApp() {
   const { user, loading } = useAuth();
+  const { courseLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [arcadeGame, setArcadeGame] = useState("math");
   
-  // Custom courses and quizzes generated in session
-  const [courses, setCourses] = useState([
-    {
-      title: "Foundations of Python & Logical Thinking",
-      description: "Learn foundational concepts of programming: variables, flow control, functions, and algorithmic intuition designed for clear mental models.",
-      pace: "Medium",
-      completedCount: 1,
-      completedLessons: {
-        "What is Programming?": true
-      },
-      modules: [
-        {
-          module_title: "Core Computational Thinking",
-          lessons: [
-            {
-              title: "What is Programming?",
-              content: "Programming is the art of communicating structured logic to a computer to solve meaningful problems.\n\nKey pillars include input, transformation, state management, and output. In this lesson, we demystify algorithms through intuitive everyday analogies like following a cooking recipe or coordinating a team.",
-              script: "Namaste and welcome to Adhyaya! Today we are exploring the foundations of logical thinking and programming. We will break down instructions into clean, bite-sized steps. Let's get started!"
-            },
-            {
-              title: "Variables and State",
-              content: "Variables act like labeled storage boxes in your computer's memory.\n\nWhether holding text, numbers, or true/false conditions, understanding variables allows your programs to remember facts, track scores, and adapt dynamically to student inputs.",
-              script: "In this second lesson, we look at variables. Think of them like labeled containers in your study desk—each one holds a specific item for quick retrieval whenever you need it."
-            }
-          ]
+  // Custom courses and quizzes generated in session - initialized in active courseLanguage
+  const [courses, setCourses] = useState(() => {
+    const initialLang = localStorage.getItem("adhyaya_course_language") || "kn";
+    return [getBuiltinCourse(initialLang)];
+  });
+
+  // Whenever course content language changes, synchronize the built-in course across the platform
+  React.useEffect(() => {
+    if (courseLanguage && BUILTIN_COURSES[courseLanguage]) {
+      setCourses(prev => {
+        const hasPython = prev.some(c => c.topic === "Python" || c.title.includes("Python") || c.title.includes("ಪೈಥಾನ್") || c.title.includes("पायथन"));
+        if (hasPython) {
+          const localized = getBuiltinCourse(courseLanguage);
+          return prev.map(c => (c.topic === "Python" || c.title.includes("Python") || c.title.includes("ಪೈಥಾನ್") || c.title.includes("पायथन"))
+            ? { ...localized, completedCount: c.completedCount || 0, completedLessons: c.completedLessons || {} }
+            : c
+          );
         }
-      ]
+        return prev;
+      });
     }
-  ]);
+  }, [courseLanguage]);
 
   const [quizzes, setQuizzes] = useState([
     {

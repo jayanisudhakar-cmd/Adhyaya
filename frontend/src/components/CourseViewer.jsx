@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { generateCourse, generateAvatarVideo, speakAvatarText, generateFreeTtsAudio } from "../services/api";
 import { useNeuro } from "../context/NeuroContext";
 import { useLanguage } from "../context/LanguageContext";
+import { getBuiltinCourse, BUILTIN_COURSES } from "../data/coursesData";
 import { 
   BookOpen, 
   Sparkles, 
@@ -63,6 +64,7 @@ export default function CourseViewer({
 
   // Narration Mode: 'content' (Default: reads full course lesson content) or 'script' (short intro)
   const [narrationMode, setNarrationMode] = useState("content");
+  const [isSwitchingLanguage, setIsSwitchingLanguage] = useState(false);
 
   // Keep local language in sync with global courseLanguage
   React.useEffect(() => {
@@ -70,6 +72,85 @@ export default function CourseViewer({
       setLanguage(currentCourseLang.speechLang);
     }
   }, [currentCourseLang]);
+
+  // Automatically switch activeCourse and selectedLesson text content whenever Course Content Language is shifted
+  useEffect(() => {
+    if (!currentCourseLang) return;
+    const targetSpeechLang = currentCourseLang.speechLang;
+    const targetLangId = currentCourseLang.id;
+
+    // Check if activeCourse exists and needs language shifting
+    if (activeCourse && (activeCourse.langCode !== targetLangId && activeCourse.language !== targetSpeechLang)) {
+      stopAudio();
+
+      // Track current lesson position so the student stays on the exact same lesson
+      let currentModIdx = 0;
+      let currentLesIdx = 0;
+      if (selectedLesson && activeCourse.modules) {
+        activeCourse.modules.forEach((m, mIdx) => {
+          m.lessons?.forEach((l, lIdx) => {
+            if (l.title === selectedLesson.title) {
+              currentModIdx = mIdx;
+              currentLesIdx = lIdx;
+            }
+          });
+        });
+      }
+
+      // 1. Instant switch for Python (Builtin course)
+      const isPython = activeCourse.topic === "Python" || 
+        activeCourse.title.toLowerCase().includes("python") || 
+        activeCourse.title.includes("ಪೈಥಾನ್") || 
+        activeCourse.title.includes("पायथन");
+
+      if (isPython && BUILTIN_COURSES[targetLangId]) {
+        const localized = BUILTIN_COURSES[targetLangId];
+        const updatedCourse = {
+          ...localized,
+          completedCount: activeCourse.completedCount || 0,
+          completedLessons: activeCourse.completedLessons || {}
+        };
+        setActiveCourse(updatedCourse);
+        setCourses(prev => prev.map(c => 
+          (c.topic === "Python" || c.title.toLowerCase().includes("python") || c.title.includes("ಪೈಥಾನ್") || c.title.includes("पायथन"))
+            ? updatedCourse
+            : c
+        ));
+
+        const targetLesson = updatedCourse.modules?.[currentModIdx]?.lessons?.[currentLesIdx] || updatedCourse.modules?.[0]?.lessons?.[0];
+        if (targetLesson) {
+          setSelectedLesson(targetLesson);
+        }
+        return;
+      }
+
+      // 2. Dynamic synthesis for custom generated courses
+      const topicToTranslate = activeCourse.topic || activeCourse.title.replace(/^(Mastering|Foundations of|Introduction to|ನನ್ನ ಕೋರ್ಸ್|ಕೋರ್ಸ್)\s*/i, "").trim();
+      setIsSwitchingLanguage(true);
+      generateCourse(topicToTranslate, targetSpeechLang, activeCourse.pace || "Medium")
+        .then(newCourse => {
+          if (newCourse && newCourse.modules) {
+            newCourse.langCode = targetLangId;
+            newCourse.language = targetSpeechLang;
+            newCourse.topic = topicToTranslate;
+            newCourse.completedCount = activeCourse.completedCount || 0;
+            newCourse.completedLessons = activeCourse.completedLessons || {};
+            setActiveCourse(newCourse);
+            setCourses(prev => prev.map(c => c.title === activeCourse.title ? newCourse : c));
+            const targetLesson = newCourse.modules?.[currentModIdx]?.lessons?.[currentLesIdx] || newCourse.modules?.[0]?.lessons?.[0];
+            if (targetLesson) {
+              setSelectedLesson(targetLesson);
+            }
+          }
+        })
+        .catch(err => {
+          console.warn("Language switch course translation error:", err);
+        })
+        .finally(() => {
+          setIsSwitchingLanguage(false);
+        });
+    }
+  }, [courseLanguage, currentCourseLang]);
 
   // Voice Gender: Male / Female selector (default to male or avatarConfig)
   const [voiceGender, setVoiceGender] = useState(() => avatarConfig?.voiceGender || "male");
@@ -492,6 +573,13 @@ export default function CourseViewer({
           </div>
         </div>
       </div>
+
+      {isSwitchingLanguage && (
+        <div className="mb-3 px-4 py-2.5 rounded-xl bg-purple-900/40 border border-purple-500/30 text-purple-200 text-xs flex items-center gap-2.5 animate-pulse shrink-0">
+          <Loader2 className="w-4 h-4 animate-spin text-purple-400 shrink-0" />
+          <span className="font-semibold">Translating syllabus outline and lesson content to {currentCourseLang?.label || "selected language"}...</span>
+        </div>
+      )}
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 overflow-hidden">
         
