@@ -116,6 +116,50 @@ export default function Chatbot() {
     }
   };
 
+const generateClientGuruReply = (query, neuroMode) => {
+  const q = query.toLowerCase();
+  if (q.includes("photo") || q.includes("plant") || q.includes("chlorophyll")) {
+    return {
+      reply: "Arre beta, photosynthesis is plants running their own solar-powered kitchen!\n\n• Ingredients: Sunlight (Surya Dev's energy) + CO2 (from air) + Water (from soil).\n• Chef: Chlorophyll (the green pigment catching sun rays).\n• Result: Glucose (sweet plant energy) + Oxygen (for us to breathe!).\nClean, green, and zero electricity bill!",
+      humor_note: "Next time you see a tree, say thank you for the free tiffin delivery!",
+      quick_tips: ["Light + H2O + CO2", "Produces Glucose & Oxygen", "Chlorophyll = Solar Panel"]
+    };
+  }
+  if (q.includes("gravity") || q.includes("newton")) {
+    return {
+      reply: "Newton saw an apple fall and asked 'Why down? Why not sideways?'\n\n1. Gravity is the universal pull between all masses in space.\n2. Bigger mass (like planet Earth) = bigger pull.\n3. Newton's 3rd Law: Every action has an equal and opposite reaction!",
+      humor_note: "Guru Ji says: Gravity works 24/7 without taking casual leave!",
+      quick_tips: ["F = m * a", "9.8 m/s² on Earth", "Action = Reaction"]
+    };
+  }
+  if (q.includes("exam") || q.includes("marks") || q.includes("nervous") || q.includes("stress")) {
+    return {
+      reply: "Relax beta! Why take tension when you can take action?\n\n1. Treat the exam like an IPL chase: knock around easy singles first (questions you know 100%).\n2. Teach the concept out loud in 60 seconds (Active Recall).\n3. 25-5 Pomodoro: 25 mins focus, 5 mins stretch.\nYou've got this!",
+      humor_note: "Marks don't define your destiny—curiosity and effort do!",
+      quick_tips: ["Start with easy questions", "Sleep 7 hours", "Active recall beats cramming"]
+    };
+  }
+  if (q.includes("code") || q.includes("python") || q.includes("loop") || q.includes("variable")) {
+    return {
+      reply: "Coding is simply writing a recipe for a very fast robot!\n\n• Variables: Labeled storage boxes (like `score = 100`).\n• Loops: Doing chores automatically ('while samosas exist, keep eating!').\n• Functions: A master recipe card written once, called 100 times!",
+      humor_note: "If code bugs out, remember: even the Chandrayaan prototypes had test revisions!",
+      quick_tips: ["Write 5 lines of code", "Use print() to inspect", "Keep variables clear"]
+    };
+  }
+  if (q.includes("math") || q.includes("equation") || q.includes("solve") || q.includes("=") || q.includes("+") || q.includes("-")) {
+    return {
+      reply: `Solving equations like '${query}' is like balancing weights on a scale!\n\n1. Goal: Isolate the variable on one side all by itself.\n2. What you do to the left side, do the exact same to the right side.\n3. Undo addition/subtraction first, then multiplication/division.\n4. Check your answer by plugging it back into the equation!`,
+      humor_note: "Math is not a monster under the bed; it's just logic wearing a fancy kurta!",
+      quick_tips: ["Keep equals signs aligned", "Isolate step-by-step", "Double check work"]
+    };
+  }
+  return {
+    reply: `Aha! Regarding **'${query}'**:\n\n• The Core Idea: Strip away the fancy jargon—this concept explains how components interact under predictable rules.\n• Desi Analogy: Like making a cup of masala chai, every ingredient has an exact role and timing.\n• 1-Minute Action: Explain the main point in 5 words, and test yourself with 1 practical question!`,
+    humor_note: "Master one small concept today, and you are already ahead of yesterday!",
+    quick_tips: ["Summarize in 5 words", "Link to real world", "Ask Guru Ji for a quiz"]
+  };
+};
+
   const handleSend = async (textToSend) => {
     const query = (textToSend || input).trim();
     if (!query || loading) return;
@@ -139,12 +183,15 @@ export default function Chatbot() {
         }
       ]);
     } catch (err) {
+      console.warn("Backend chat failed, using instant client Guru Ji engine:", err);
+      const fallback = generateClientGuruReply(query, neuroMode);
       setMessages(prev => [
         ...prev,
         {
           role: "assistant",
-          content: "Arre re! My internet connection took a brief chai break. But remember: Focus on the basics and try asking once more!",
-          humorNote: "Tip: Reconnecting to Guru Ji's cloud frequency..."
+          content: fallback.reply,
+          humorNote: fallback.humor_note,
+          quickTips: fallback.quick_tips
         }
       ]);
     } finally {
@@ -154,21 +201,18 @@ export default function Chatbot() {
 
   return (
     <>
-      {/* Floating Toggle Button */}
+      {/* Floating Toggle Button - Sleek compact circular icon */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 group flex items-center gap-3 bg-gradient-to-r from-amber-500 via-brand-500 to-blue-500 text-white p-3.5 sm:px-5 sm:py-3.5 rounded-full shadow-2xl shadow-brand-500/30 hover:scale-105 transition-all border border-white/20"
+          className="fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 to-brand-500 text-white shadow-xl shadow-brand-500/25 hover:scale-110 active:scale-95 transition-all duration-200 border-2 border-white/30 flex items-center justify-center group"
           aria-label="Open Guru Ji Chatbot"
+          title="Ask Guru Ji (AI Study Mitra)"
         >
-          <span className="text-2xl group-hover:rotate-12 transition-transform">👳🏽‍♂️</span>
-          <div className="hidden sm:block text-left">
-            <p className="text-xs font-black tracking-wide leading-tight">GURU JI</p>
-            <p className="text-[10px] text-amber-200 font-semibold leading-none">AI Study Mitra • Desi Humor</p>
-          </div>
-          <span className="flex h-3 w-3 relative">
+          <span className="text-xl group-hover:rotate-12 transition-transform">👳🏽‍♂️</span>
+          <span className="absolute -top-1 -right-1 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-400"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-400 border-2 border-slate-900"></span>
           </span>
         </button>
       )}

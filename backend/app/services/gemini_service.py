@@ -313,30 +313,162 @@ class GeminiService:
         }
 
     def _synthesize_guru_reply(self, message: str, neuro_mode: str) -> dict:
-        """Guru Ji's witty, humorous, crisp Indian tutor persona."""
+        """
+        Guru Ji's comprehensive, witty Indian AI tutor engine.
+        Answers math, science, programming, history, and study doubts with crisp desi humor.
+        """
         msg_lower = message.lower()
 
-        # Contextual humorous replies
-        if any(w in msg_lower for w in ["hi", "hello", "hey", "namaste"]):
-            reply = "Namaste beta! Guru Ji is in the classroom. What concept is troubling your brain today? Ask away—I explain things faster than a Mumbai local on green signal!"
-        elif any(w in msg_lower for w in ["exam", "test", "scared", "nervous", "marks"]):
-            reply = "Arre baba, relax! Why take tension when you can take action? Treat your exams like an IPL run chase—keep your head cool, pick the easy singles first, and hit the big concepts for six. What topic do you want to revise right now?"
-        elif any(w in msg_lower for w in ["math", "formula", "calculus", "algebra", "number"]):
+        # 1. Greetings & Pleasantries
+        if any(w in msg_lower for w in ["hi", "hello", "hey", "namaste", "pranam", "good morning", "good evening"]):
+            reply = "Namaste beta! Guru Ji is in the classroom. What concept is troubling your brain today? Ask away—I explain things faster than a Mumbai local on a green signal!"
+            humor = "Guru Ji's Rule #1: Why take tension when you can take action?"
+            tips = ["Ask any doubt", "Request a cricket analogy", "Try a 5-min study sprint"]
+
+        # 2. Photosynthesis & Botany
+        elif any(w in msg_lower for w in ["photosynthesis", "chlorophyll", "plant food", "stomata"]):
+            reply = """Arre, photosynthesis is basically plants running their own 5-star solar-powered kitchen!
+
+• The Ingredients: Sunlight (free energy from Surya Dev) + Carbon Dioxide (inhaled through tiny leaf doors called stomata) + Water (drawn from the soil roots).
+• The Master Chef: Chlorophyll (the green pigment that catches the sun rays like a fielder at boundary).
+• The Dish Prepared: Glucose (delicious sweet plant energy) + Fresh Oxygen (released for all of us to breathe!).
+
+Equation in plain words:
+Sunlight + CO2 + Water ➔ Glucose + Oxygen. Clean, green, and zero electricity bill!"""
+            humor = "Next time you see a tree, say thank you for the free tiffin delivery!"
+            tips = ["Remember: Light + CO2 + H2O", "Chlorophyll = Solar Panels", "Releases Oxygen"]
+
+        # 3. Gravity & Newton's Laws
+        elif any(w in msg_lower for w in ["gravity", "newton", "apple fall", "falling"]):
+            reply = """Listen carefully! Sir Isaac Newton got hit on the head by an apple, and instead of eating it, he discovered Gravity!
+
+1. What is Gravity? It is the invisible universal glue pulling any two masses toward each other. The heavier the object (like planet Earth), the stronger the pull!
+2. First Law: Things stay lazy unless a force pushes them (just like Sharma ji's scooter on a cold morning).
+3. Second Law: Force = Mass × Acceleration (Hit a cricket ball harder, it flies further).
+4. Third Law: Every action has an equal & opposite reaction (Push the skateboard backward, you roll forward!)."""
+            humor = "Gravity always works 24/7 without taking casual leave!"
+            tips = ["F = m * a", "Earth pulls with 9.8 m/s²", "Action = Reaction"]
+
+        # 4. Programming & Computer Science
+        elif any(w in msg_lower for w in ["python", "variable", "loop", "function", "coding", "code", "programming", "if else"]):
+            reply = """Coding is just writing a recipe for a very fast but completely literal robot!
+
+• Variables: Labeled dabbas (storage boxes) in memory. Like a jar labeled 'Sugar'—here `score = 100`.
+• Loops (for/while): Doing your chores automatically until done. 'While samosas remain on plate, keep eating!'
+• Functions: A master recipe card `def make_chai(tea, milk):`. You write it once, call it 100 times!
+• If/Else: Decision-making. 'If traffic is clear, go; Else, take the bypass road.'
+
+Start with tiny scripts, run them, break them, and fix them. That is how real programmers are made!"""
+            humor = "Pro tip: If your code doesn't work on the first try, don't worry—neither did the Chandrayaan prototype!"
+            tips = ["Practice 5 lines of code", "Use print() for debugging", "Keep variables descriptive"]
+
+        # 5. Math, Calculus, Equations & Algebra (including equation detection like '2x + 4 = 10')
+        elif any(w in msg_lower for w in ["math", "formula", "algebra", "calculus", "quadratic", "pythagoras", "equation", "solve", "+", "-", "*", "/", "="]) and any(char.isdigit() for char in message):
             if neuro_mode == "dyscalculia":
-                reply = "Numbers are just visual ingredients, like making chai! Two spoons of logic, one cup of patience, boil it on low flame. Tell me the specific problem, and we will visualize it without scary formula walls!"
+                reply = f"""Arre beta, let us throw away the scary formula walls! Let's solve '{message}' visually:
+
+• Visual Balance Method:
+Think of the equals sign (=) as a physical balance scale!
+1. What you do to the left side, you must do to the right side to keep the pans level.
+2. Group the loose numbers together and the mystery bags together.
+3. For example in 2x + 4 = 10: Remove 4 loose coins from both sides -> 2x = 6. Divide both by 2 -> x = 3!
+See? It is just balancing weights on a scale without tension!"""
             else:
-                reply = "Math is not a monster under the bed; it's just logic wearing a fancy kurta! Break the equation into bite-sized pieces. Which step is making your brain spin?"
-        elif any(w in msg_lower for w in ["focus", "distracted", "adhd", "bored"]):
-            reply = "Listen carefully! Here is the Guru Ji 10-Minute Sprint: 1) Pick ONE sub-topic. 2) Put phone on silent. 3) Read for 10 minutes. Then reward yourself with a hot samosa or a chai break. Let's do 10 minutes right now—what are we studying?"
-        elif any(w in msg_lower for w in ["who are you", "what is adhyaya", "adhyaya"]):
-            reply = "I am Guru Ji, your friendly neighborhood AI tutor on Adhyaya! Think of me as the mentor who gives crisp explanations, zero boring lectures, and enough encouragement to make Sharma ji jealous."
+                reply = f"""Solving equations like '{message}' is just being a detective finding the hidden value!
+
+1. Goal: Isolate the variable on one side all by itself.
+2. Rule of Balance: If you subtract or add to one side, do the exact same to the other side.
+3. Undo Operations in Reverse (SADMEP):
+   - First undo Addition / Subtraction
+   - Then undo Multiplication / Division
+4. Final Sanity Check: Plug your answer back into '{message}' to verify both sides match!"""
+            humor = "Mathematics: The only subject where every problem has a solution waiting to be discovered!"
+            tips = ["Isolate the variable step-by-step", "Keep equals signs aligned", "Double check by plugging back"]
+
+        elif any(w in msg_lower for w in ["math", "formula", "algebra", "calculus", "quadratic", "pythagoras", "equation"]):
+            if neuro_mode == "dyscalculia":
+                reply = """Arre beta, let us throw away the scary formula walls! Math is just counting visual pieces:
+
+• Pythagoras Theorem: Imagine a right-angled triangle like a samosa corner. The two short sides (a and b) build squares. Together, their area matches the big slanted side (c²)!
+• Visualizing Equations: `2x + 4 = 10` simply means: 'Two mystery bags plus 4 loose coins equal 10 coins.'
+1. Remove 4 coins from both sides: Two bags = 6 coins.
+2. Divide by 2: Each bag has 3 coins! (x = 3).
+See? No black magic, just balancing weights on a scale!"""
+            else:
+                reply = """Math is not a monster under your bed; it is just logic wearing a crisp kurta!
+
+• Algebra: Solving for 'x' is just being a detective finding who stole the last jalebi.
+• Pythagoras: a² + b² = c² (The square of the longest hypotenuse side equals the sum of squares of the other two).
+• Quadratic Formula: `x = (-b ± √(b² - 4ac)) / (2a)`.
+Break each calculation into 1 line at a time. Never rush all steps together!"""
+            humor = "Mathematics: The only place where people buy 60 watermelons and nobody asks why!"
+            tips = ["Isolate variables step-by-step", "Draw a sketch first", "Sanity check by substituting back"]
+
+        # 6. Exam Anxiety & Memory Strategy
+        elif any(w in msg_lower for w in ["exam", "test", "scared", "nervous", "marks", "forget", "study tips"]):
+            reply = """Arre beta, breathe in, sip some warm water, and relax! Why take tension when you can take action?
+
+Here is the Guru Ji 3-Step Exam Strategy:
+1. Treat it like an IPL Run Chase: Don't try hitting a boundary on every single ball. First collect easy singles (questions you know 100%). Build momentum!
+2. Active Recall over Passive Reading: Close your notebook and explain the topic in 60 seconds to your mirror or your pet. If you can explain it simply, you own it!
+3. The 25-5 Pomodoro: 25 minutes pure study, 5 minutes stretch. Zero multitasking."""
+            humor = "Remember: Marks don't define your destiny. Your curiosity and consistency do!"
+            tips = ["Attempt easy questions first", "Teach it aloud to test recall", "Sleep 7 hours before test"]
+
+        # 7. Focus, ADHD & Distraction
+        elif any(w in msg_lower for w in ["focus", "distracted", "adhd", "bored", "procrastinat"]):
+            reply = """Listen closely! When your brain wants novelty and won't focus, do NOT force a 2-hour marathon.
+
+Use the Guru Ji Dopamine Sprint:
+⚡ Step 1: Pick ONE micro-task (e.g., read just 2 paragraphs or solve 1 problem).
+⚡ Step 2: Set a timer for 10 minutes.
+⚡ Step 3: Put your smartphone in the next room (out of sight, out of mind).
+⚡ Step 4: After 10 mins, celebrate with a reward! A cookie, a stretch, or your favorite track!"""
+            humor = "Your brain is an ultra-fast Ferrari with bicycle brakes. Master the brakes, and you will fly!"
+            tips = ["10-min sprints only", "Hide your phone", "Celebrate small milestones"]
+
+        # 8. Space, ISRO & Solar System
+        elif any(w in msg_lower for w in ["space", "isro", "chandrayaan", "moon", "solar system", "planet"]):
+            reply = """Shabash! Space exploration is India's proudest playground!
+
+• Chandrayaan-3: Landed near the Moon's South Pole where no nation had gone before—and at a fraction of a Hollywood movie's budget!
+• How Rockets Work: Newton's 3rd Law! Burning fuel shoots downward at extreme speed, pushing the rocket skyward into orbit.
+• The Solar System: 8 planets orbiting Surya Dev. Inner rocky planets (Mercury, Venus, Earth, Mars) and outer gas giants (Jupiter, Saturn, Uranus, Neptune)."""
+            humor = "ISRO proves: When you combine Indian engineering with sheer passion, even the Moon is within reach!"
+            tips = ["Newton's 3rd law powers rockets", "Escape velocity is 11.2 km/s", "Stay curious!"]
+
+        # 9. Dynamic Concept Breakdown for ANY topic
         else:
-            reply = f"Aha! Regarding '{message}': The secret is simple—isolate the core idea, strip away the jargon, and connect it to something you already know. Here is the golden rule: Focus on the 'why' before the 'how'. What specific part should we unpack first?"
+            # Extract key nouns and question intent
+            clean_q = message.strip()
+            reply = f"""Aha! You are asking about **'{clean_q}'**! Let me break it down clearly:
+
+1. The Core Idea:
+Strip away the fancy textbook jargon. At its heart, this concept explains how components interact under specific rules to produce predictable outcomes.
+
+2. A Simple Indian Analogy:
+Think of it like coordinating a street cricket tournament or preparing a great cup of tea—every ingredient and player has a designated role. If one part is missing, the balance shifts!
+
+3. Your 3-Minute Action Step:
+• First, define the main terms in your own words.
+• Second, find one real-life example where this operates in the background.
+• Third, test yourself with a quick question!
+
+What specific part of '{clean_q}' would you like to explore deeper?"""
+            humor = "Guru Ji's Motto: Master one concept before lunch, and you are already ahead of yesterday!"
+            tips = [f"Summarize {clean_q} in 1 line", "Link to a real example", "Ask Guru Ji for a quiz"]
+
+        # Neuro-mode specific adaptation
+        if neuro_mode == "adhd":
+            lines = [l for l in reply.split("\n") if l.strip()][:5]
+            reply = "\n".join(lines) + "\n\n⚡ Quick Challenge: What is the main takeaway in 3 words?"
+        elif neuro_mode == "dyslexia":
+            reply = reply.replace("—", " - ")
 
         return {
             "reply": reply,
-            "humor_note": "Guru Ji Tip: When in doubt, breathe deep, sip water, and conquer one concept at a time!",
-            "quick_tips": ["Break it down", "Ask follow-up", "Take a 5-min walk"]
+            "humor_note": humor,
+            "quick_tips": tips
         }
 
 gemini_service = GeminiService()

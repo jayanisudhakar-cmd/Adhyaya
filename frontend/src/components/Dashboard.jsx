@@ -1,9 +1,9 @@
 import React from "react";
-import { BookOpen, Trophy, Sparkles, Plus, Play, Award, GraduationCap, Video, MessageSquare } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Plus, Play, Award, GraduationCap, Video, MessageSquare, Gamepad2 } from "lucide-react";
 import NeuroInclusionHub from "./NeuroInclusionHub";
 import { useNeuro } from "../context/NeuroContext";
 
-export default function Dashboard({ courses, quizzes, setActiveTab, onSelectCourse, avatarVideo }) {
+export default function Dashboard({ courses, quizzes, setActiveTab, onSelectCourse, avatarVideo, onOpenArcade }) {
   const { neuroMode } = useNeuro();
 
   const totalCourses = courses.length;
@@ -45,6 +45,12 @@ export default function Dashboard({ courses, quizzes, setActiveTab, onSelectCour
               className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition-all shadow-md shadow-brand-500/20 flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Create Custom Course
+            </button>
+            <button
+              onClick={() => onOpenArcade ? onOpenArcade("math") : setActiveTab("arcade")}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition-all shadow-md shadow-purple-500/20 flex items-center gap-2"
+            >
+              <Gamepad2 className="w-4 h-4" /> Play & Learn Arcade
             </button>
             <button
               onClick={() => setActiveTab("avatar")}
@@ -99,7 +105,7 @@ export default function Dashboard({ courses, quizzes, setActiveTab, onSelectCour
         
         {/* Left Column (Span 4): Dedicated Neuro-Inclusion Hub */}
         <div className="lg:col-span-4 space-y-6">
-          <NeuroInclusionHub />
+          <NeuroInclusionHub onOpenArcade={onOpenArcade} />
 
           {/* Quick Guru Ji Prompt Box */}
           <div className="glass-panel p-5 rounded-2xl border border-white/10 bg-gradient-to-tr from-amber-950/20 to-slate-900 space-y-3">
@@ -118,6 +124,58 @@ export default function Dashboard({ courses, quizzes, setActiveTab, onSelectCour
 
         {/* Right Columns (Span 8): Courses & Assessments */}
         <div className="lg:col-span-8 space-y-8">
+
+          {/* Interactive Play & Learn Quests Showcase */}
+          <div className="glass-panel p-6 rounded-3xl border border-white/10 bg-gradient-to-r from-blue-950/20 via-purple-950/20 to-slate-900 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 text-brand-400 text-xs font-bold uppercase tracking-wider">
+                  <Gamepad2 className="w-4 h-4" /> Play & Learn Arcade
+                </div>
+                <h3 className="text-white font-extrabold text-base">
+                  Master Math, Words & Stories with Educational Games
+                </h3>
+                <p className="text-xs text-gray-400 max-w-lg">
+                  Designed for natural, stress-free learning with visual scales, phonics quests, and voice storytelling!
+                </p>
+              </div>
+              <button
+                onClick={() => onOpenArcade ? onOpenArcade("math") : setActiveTab("arcade")}
+                className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-4 py-2.5 rounded-xl border border-white/10 shrink-0 transition-all flex items-center gap-2"
+              >
+                Explore Games →
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/5">
+              <button
+                onClick={() => onOpenArcade ? onOpenArcade("math") : setActiveTab("arcade")}
+                className="p-3 bg-slate-900/60 rounded-xl border border-blue-500/20 hover:border-blue-500/50 text-left transition-all group"
+              >
+                <span className="text-xl">⚖️</span>
+                <p className="text-xs font-bold text-white group-hover:text-blue-300 mt-1">Learn Math with Games</p>
+                <p className="text-[10px] text-gray-500">Visual scales & number line hops</p>
+              </button>
+
+              <button
+                onClick={() => onOpenArcade ? onOpenArcade("words") : setActiveTab("arcade")}
+                className="p-3 bg-slate-900/60 rounded-xl border border-amber-500/20 hover:border-amber-500/50 text-left transition-all group"
+              >
+                <span className="text-xl">🔤</span>
+                <p className="text-xs font-bold text-white group-hover:text-amber-300 mt-1">Word Explorer & Sounds</p>
+                <p className="text-[10px] text-gray-500">Letter spots, phonics & rhymes</p>
+              </button>
+
+              <button
+                onClick={() => onOpenArcade ? onOpenArcade("story") : setActiveTab("arcade")}
+                className="p-3 bg-slate-900/60 rounded-xl border border-purple-500/20 hover:border-purple-500/50 text-left transition-all group"
+              >
+                <span className="text-xl">✍️</span>
+                <p className="text-xs font-bold text-white group-hover:text-purple-300 mt-1">Story Crafter Studio</p>
+                <p className="text-[10px] text-gray-500">Tap, talk & build with zero typing</p>
+              </button>
+            </div>
+          </div>
           
           {/* Courses List */}
           <div className="space-y-4">

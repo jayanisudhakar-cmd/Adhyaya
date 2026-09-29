@@ -14,7 +14,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 
-export default function NeuroInclusionHub() {
+export default function NeuroInclusionHub({ onOpenArcade }) {
   const { 
     neuroMode, 
     setNeuroMode, 
@@ -189,6 +189,62 @@ export default function NeuroInclusionHub() {
             Select any profile above to customize typography, contrast, timers, and pacing instantly.
           </p>
         )}
+      </div>
+
+      {/* Play & Learn Interactive Games Section */}
+      <div className="pt-3 border-t border-white/5 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+            Play & Practice Quests
+          </span>
+          <span className="text-[9px] bg-brand-500/20 text-brand-300 font-bold px-1.5 py-0.5 rounded">
+            Interactive
+          </span>
+        </div>
+        <p className="text-[10px] text-gray-400 leading-snug">
+          Reinforce concepts with fun game quests designed for natural, stress-free mastery:
+        </p>
+        <div className="grid grid-cols-1 gap-1.5 pt-1">
+          <button
+            onClick={() => onOpenArcade && onOpenArcade("math")}
+            className="p-2 rounded-xl bg-slate-900/60 border border-blue-500/20 hover:border-blue-500/50 hover:bg-blue-950/30 flex items-center justify-between text-left transition-all text-xs group"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm">⚖️</span>
+              <div>
+                <span className="font-bold text-white text-[11px] block group-hover:text-blue-300">Learn Math with Games</span>
+                <span className="text-[9px] text-gray-500 block">Visual scales & number line hops</span>
+              </div>
+            </div>
+            <span className="text-[10px] text-blue-400 font-bold">Play →</span>
+          </button>
+          <button
+            onClick={() => onOpenArcade && onOpenArcade("words")}
+            className="p-2 rounded-xl bg-slate-900/60 border border-amber-500/20 hover:border-amber-500/50 hover:bg-amber-950/30 flex items-center justify-between text-left transition-all text-xs group"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🔤</span>
+              <div>
+                <span className="font-bold text-white text-[11px] block group-hover:text-amber-300">Word Explorer & Sounds</span>
+                <span className="text-[9px] text-gray-500 block">Letter spotlights & phonics quests</span>
+              </div>
+            </div>
+            <span className="text-[10px] text-amber-400 font-bold">Play →</span>
+          </button>
+          <button
+            onClick={() => onOpenArcade && onOpenArcade("story")}
+            className="p-2 rounded-xl bg-slate-900/60 border border-purple-500/20 hover:border-purple-500/50 hover:bg-purple-950/30 flex items-center justify-between text-left transition-all text-xs group"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm">✍️</span>
+              <div>
+                <span className="font-bold text-white text-[11px] block group-hover:text-purple-300">Story Crafter Studio</span>
+                <span className="text-[9px] text-gray-500 block">Tap, talk & build with zero typing</span>
+              </div>
+            </div>
+            <span className="text-[10px] text-purple-400 font-bold">Play →</span>
+          </button>
+        </div>
       </div>
     </div>
   );

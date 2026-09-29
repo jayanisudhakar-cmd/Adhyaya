@@ -32,6 +32,28 @@ export async function generateQuiz(topic, level = "Medium", numQuestions = 5) {
   return response.json();
 }
 
+export async function convertRealImageToFigurine(imageSource, style = "clay_figurine") {
+  const formData = new FormData();
+  formData.append("style", style);
+
+  if (imageSource instanceof File) {
+    formData.append("image_file", imageSource);
+  } else if (typeof imageSource === "string") {
+    formData.append("image_url", imageSource);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/avatar/convert-to-figurine`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to convert image into 3D AI Figurine.");
+  }
+  return response.json();
+}
+
 export async function generateAvatarVideo(imageSource, script, voiceId = "21m00Tcm4TlvDq8ikWAM") {
   const formData = new FormData();
   formData.append("script", script);
@@ -86,3 +108,45 @@ export async function updateApiKey(geminiKey) {
   });
   return response.json();
 }
+
+export async function speakAvatarText(text, voiceGender = "male", language = "English", pace = "Medium") {
+  const response = await fetch(`${API_BASE_URL}/avatar/speak`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text,
+      voice_gender: voiceGender,
+      language,
+      pace
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to synthesize neural speech.");
+  }
+  return response.json();
+}
+
+export async function generateAvatarLecture(topic, language = "English", pace = "Medium") {
+  const response = await fetch(`${API_BASE_URL}/avatar/generate-lecture`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      topic,
+      language,
+      pace
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to generate lecture script.");
+  }
+  return response.json();
+}
+

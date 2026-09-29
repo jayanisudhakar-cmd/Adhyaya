@@ -89,18 +89,17 @@ body.mode-dysgraphia .clickable-target {
   font-size: 1rem;
 }
 
-/* Interactive Reading Ruler */
+/* Interactive Reading Ruler Guide (Subtle Focus Aid) */
 .reading-ruler {
   pointer-events: none;
   position: fixed;
   left: 0;
   right: 0;
-  height: 42px;
-  background: rgba(253, 224, 71, 0.14);
-  border-top: 2px solid rgba(234, 179, 8, 0.5);
-  border-bottom: 2px solid rgba(234, 179, 8, 0.5);
+  height: 38px;
+  background: rgba(254, 240, 138, 0.04);
+  border-top: 1px dashed rgba(245, 158, 11, 0.3);
+  border-bottom: 1px dashed rgba(245, 158, 11, 0.3);
   z-index: 9999;
-  box-shadow: 0 0 25px rgba(234, 179, 8, 0.15);
   transition: top 0.04s ease-out;
 }
 
@@ -133,39 +132,62 @@ body.mode-dysgraphia .clickable-target {
   -webkit-text-fill-color: transparent;
 }
 
-/* Lip sync talking animation */
+/* Realistic Figurative Animations */
 @keyframes lipSyncTalk {
-  0% { transform: scaleY(1); }
-  25% { transform: scaleY(1.35) scaleX(0.92); }
-  50% { transform: scaleY(0.85) scaleX(1.05); }
-  75% { transform: scaleY(1.4) scaleX(0.9); }
-  100% { transform: scaleY(1); }
+  0% { transform: scaleY(0.4) scaleX(0.9); border-radius: 40%; }
+  20% { transform: scaleY(1.4) scaleX(1.15); border-radius: 50%; }
+  45% { transform: scaleY(0.6) scaleX(0.95); border-radius: 35%; }
+  70% { transform: scaleY(1.6) scaleX(1.1); border-radius: 50%; }
+  100% { transform: scaleY(0.4) scaleX(0.9); border-radius: 40%; }
 }
 
-@keyframes figurineFloat {
+@keyframes figurineIdleFloat {
   0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-6px) rotate(0.8deg); }
+  50% { transform: translateY(-5px) rotate(0.4deg); }
   100% { transform: translateY(0px) rotate(0deg); }
 }
 
-.animate-figurine {
-  animation: figurineFloat 4s ease-in-out infinite;
+@keyframes figurineSpeakingMotion {
+  0% { transform: translateY(-2px) rotate(0deg) scale(1.01); }
+  25% { transform: translateY(-7px) rotate(-1.2deg) scale(1.02); }
+  50% { transform: translateY(-3px) rotate(0.8deg) scale(1.01); }
+  75% { transform: translateY(-8px) rotate(1.2deg) scale(1.02); }
+  100% { transform: translateY(-2px) rotate(0deg) scale(1.01); }
+}
+
+@keyframes pedestalPulseRings {
+  0% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.08); opacity: 0.85; filter: drop-shadow(0 0 16px rgba(34, 197, 94, 0.6)); }
+  100% { transform: scale(1); opacity: 0.4; }
+}
+
+.animate-figurine-idle {
+  animation: figurineIdleFloat 4.5s ease-in-out infinite;
+}
+
+.animate-figurine-speaking {
+  animation: figurineSpeakingMotion 1.8s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.pedestal-active {
+  animation: pedestalPulseRings 2s ease-in-out infinite;
 }
 
 .lip-sync-active {
-  animation: lipSyncTalk 0.28s ease-in-out infinite alternate;
-  transform-origin: bottom center;
+  animation: lipSyncTalk 0.22s ease-in-out infinite alternate;
+  transform-origin: center center;
 }
 
 /* Sound wave animation */
 @keyframes soundWave {
   0% { height: 4px; }
-  50% { height: 24px; }
+  50% { height: 26px; }
   100% { height: 4px; }
 }
 
 .sound-bar {
-  animation: soundWave 0.6s ease-in-out infinite alternate;
+  animation: soundWave 0.5s ease-in-out infinite alternate;
 }
 
 /* Custom scrollbars */

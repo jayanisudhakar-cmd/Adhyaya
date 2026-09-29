@@ -7,7 +7,8 @@ import {
   Trophy, 
   UserCheck, 
   LogOut,
-  Sparkles
+  Sparkles,
+  Gamepad2
 } from "lucide-react";
 
 export default function Layout({ children, activeTab, setActiveTab }) {
@@ -17,6 +18,7 @@ export default function Layout({ children, activeTab, setActiveTab }) {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "courses", label: "My Courses", icon: BookOpen },
     { id: "quizzes", label: "Test Series", icon: Trophy },
+    { id: "arcade", label: "Play & Learn", icon: Gamepad2 },
     { id: "avatar", label: "AI Teacher Avatar", icon: UserCheck },
   ];
 

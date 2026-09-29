@@ -8,10 +8,12 @@ import CourseViewer from "./components/CourseViewer";
 import TestGenerator from "./components/TestGenerator";
 import AvatarUpload from "./components/AvatarUpload";
 import Chatbot from "./components/Chatbot";
+import GameArcade from "./components/GameArcade";
 
 function MainApp() {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [arcadeGame, setArcadeGame] = useState("math");
   
   // Custom courses and quizzes generated in session
   const [courses, setCourses] = useState([
@@ -95,6 +97,10 @@ function MainApp() {
           setActiveTab={setActiveTab}
           onSelectCourse={setActiveCourse}
           avatarVideo={globalAvatarVideo}
+          onOpenArcade={(gameId) => {
+            setArcadeGame(gameId || "math");
+            setActiveTab("arcade");
+          }}
         />
       )}
 
@@ -113,6 +119,12 @@ function MainApp() {
         <TestGenerator
           quizzes={quizzes}
           setQuizzes={setQuizzes}
+        />
+      )}
+
+      {activeTab === "arcade" && (
+        <GameArcade
+          initialGame={arcadeGame}
         />
       )}
 

@@ -52,9 +52,12 @@ export function NeuroProvider({ children }) {
     return localStorage.getItem("adhyaya_neuro_mode") || "standard";
   });
 
-  const [readingRuler, setReadingRuler] = useState(() => {
-    return localStorage.getItem("adhyaya_ruler") === "true";
-  });
+  const [readingRuler, setReadingRuler] = useState(false);
+
+  // Clear any persistent ruler toggle from storage so it does not auto-activate
+  useEffect(() => {
+    localStorage.removeItem("adhyaya_ruler");
+  }, []);
 
   const [rulerY, setRulerY] = useState(200);
   const [focusTimerActive, setFocusTimerActive] = useState(false);
@@ -102,18 +105,10 @@ export function NeuroProvider({ children }) {
 
   const setNeuroMode = (mode) => {
     setNeuroModeState(mode);
-    if (mode === "dyslexia") {
-      setReadingRuler(true);
-      localStorage.setItem("adhyaya_ruler", "true");
-    }
   };
 
   const toggleReadingRuler = () => {
-    setReadingRuler((prev) => {
-      const next = !prev;
-      localStorage.setItem("adhyaya_ruler", String(next));
-      return next;
-    });
+    setReadingRuler((prev) => !prev);
   };
 
   const toggleFocusTimer = () => {
@@ -144,10 +139,20 @@ export function NeuroProvider({ children }) {
     >
       {readingRuler && (
         <div
-          className="reading-ruler"
-          style={{ top: `${Math.max(0, rulerY - 21)}px` }}
+          className="reading-ruler flex items-center justify-between px-6 pointer-events-none"
+          style={{ top: `${Math.max(0, rulerY - 20)}px` }}
           aria-hidden="true"
-        />
+        >
+          <span className="text-[10px] font-bold text-amber-300/80 bg-slate-900/90 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+            📖 Focus Line Guide
+          </span>
+          <button
+            onClick={toggleReadingRuler}
+            className="text-[10px] bg-slate-900 text-white hover:text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/40 pointer-events-auto cursor-pointer shadow-lg"
+          >
+            ✕ Dismiss
+          </button>
+        </div>
       )}
       {children}
     </NeuroContext.Provider>
